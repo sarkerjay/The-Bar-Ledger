@@ -146,6 +146,7 @@ function rowToCocktail(row) {
     instructions: row.instructions || '',
     garnish: row.garnish || '',
     notes: row.notes || '',
+    isFavorite: !!row.is_favorite,
   };
 }
 function cocktailToRow(cocktail) {
@@ -158,6 +159,7 @@ function cocktailToRow(cocktail) {
     instructions: cocktail.instructions || '',
     garnish: cocktail.garnish || '',
     notes: cocktail.notes || '',
+    is_favorite: !!cocktail.isFavorite,
   };
 }
 
@@ -262,8 +264,14 @@ const state = {
   unit: 'oz',        // 'oz' | 'ml' | 'ratio'
   browseCategory: 'all',
   shelfCategory: 'all',
+  browseSearch: '',
+  shelfSearch: '',
   editingId: null,   // id of the cocktail currently being edited, or null
 };
+
+// Reserved rail key for the pinned "★ Favorites" entry — distinct from any
+// real category key so a user-created category can never collide with it.
+const FAVORITES_KEY = '__favorites__';
 
 function normalize(name) {
   return name.trim().toLowerCase();
@@ -340,6 +348,10 @@ async function upsertCocktailsRemote(cocktails) {
   const { error } = await supabaseClient.from('cocktails').upsert(cocktails.map(cocktailToRow));
   if (error) throw error;
 }
+async function updateFavoriteRemote(id, isFavorite) {
+  const { error } = await supabaseClient.from('cocktails').update({ is_favorite: isFavorite }).eq('id', id);
+  if (error) throw error;
+}
 
 /* ---------------------------------------------------------
    Ingredient / cocktail helpers
@@ -364,7 +376,18 @@ function categoryKey(label) {
 
 function cocktailMatchesCategory(cocktail, activeKey) {
   if (activeKey === 'all') return true;
+  if (activeKey === FAVORITES_KEY) return !!cocktail.isFavorite;
   return getBaseIngredients(cocktail).some(i => categoryKey(i.category) === activeKey);
+}
+
+// Search matches against the cocktail's own name AND its ingredient names
+// (base or not) — e.g. "campari" surfaces the Negroni. Case-insensitive
+// substring match, no fuzzy matching.
+function cocktailMatchesSearch(cocktail, query) {
+  const q = (query || '').trim().toLowerCase();
+  if (!q) return true;
+  if (cocktail.name.toLowerCase().includes(q)) return true;
+  return cocktail.ingredients.some(i => i.name.toLowerCase().includes(q));
 }
 
 function primaryTabLabel(cocktail) {
@@ -514,6 +537,12 @@ function buildIngredientLines(cocktail, unitMode) {
 --------------------------------------------------------- */
 function renderCategoryRail(containerEl, activeKey, onSelect) {
   containerEl.innerHTML = '';
+  const favBtn = document.createElement('button');
+  favBtn.className = 'category-btn category-btn-favorites' + (activeKey === FAVORITES_KEY ? ' is-active' : '');
+  favBtn.innerHTML = `<span class="dot star-dot">★</span> Favorites`;
+  favBtn.addEventListener('click', () => onSelect(FAVORITES_KEY));
+  containerEl.appendChild(favBtn);
+
   const allBtn = document.createElement('button');
   allBtn.className = 'category-btn' + (activeKey === 'all' ? ' is-active' : '');
   allBtn.innerHTML = `<span class="dot" style="--dot-color:#C6992F"></span> All cocktails`;
@@ -533,9 +562,9 @@ function renderCategoryRail(containerEl, activeKey, onSelect) {
    Rendering: cocktail card
 --------------------------------------------------------- */
 function renderCard(cocktail, unitMode, opts) {
-  const { showAvailability } = opts;
+  const { showAvailability, expanded, inModal } = opts;
   const card = document.createElement('article');
-  card.className = 'cocktail-card';
+  card.className = 'cocktail-card' + (inModal ? ' cocktail-card-modal' : ' is-clickable');
   const tabLabel = primaryTabLabel(cocktail);
   card.style.setProperty('--tab-color', hashCategoryColor(tabLabel));
 
@@ -545,6 +574,15 @@ function renderCard(cocktail, unitMode, opts) {
   tab.className = 'card-tab';
   tab.textContent = tabLabel;
   card.appendChild(tab);
+
+  const favBtn = document.createElement('button');
+  favBtn.type = 'button';
+  favBtn.className = 'card-favorite-btn' + (cocktail.isFavorite ? ' is-active' : '');
+  favBtn.setAttribute('aria-label', cocktail.isFavorite ? 'Remove from favorites' : 'Add to favorites');
+  favBtn.setAttribute('aria-pressed', String(!!cocktail.isFavorite));
+  favBtn.textContent = cocktail.isFavorite ? '★' : '☆';
+  favBtn.addEventListener('click', () => toggleFavorite(cocktail));
+  card.appendChild(favBtn);
 
   const name = document.createElement('h3');
   name.className = 'card-name';
@@ -587,6 +625,7 @@ function renderCard(cocktail, unitMode, opts) {
 
   const details = document.createElement('details');
   details.className = 'card-instructions';
+  if (expanded) details.open = true;
   const summary = document.createElement('summary');
   summary.textContent = 'Instructions';
   details.appendChild(summary);
@@ -615,17 +654,97 @@ function renderCard(cocktail, unitMode, opts) {
   editBtn.className = 'card-action-btn';
   editBtn.type = 'button';
   editBtn.textContent = 'Edit';
-  editBtn.addEventListener('click', () => startEdit(cocktail));
+  editBtn.addEventListener('click', () => {
+    if (inModal) closeCocktailModal();
+    startEdit(cocktail);
+  });
   const deleteBtn = document.createElement('button');
   deleteBtn.className = 'card-action-btn is-delete';
   deleteBtn.type = 'button';
   deleteBtn.textContent = 'Delete';
-  deleteBtn.addEventListener('click', () => deleteCocktail(cocktail.id));
+  deleteBtn.addEventListener('click', () => {
+    if (inModal) closeCocktailModal();
+    deleteCocktail(cocktail.id);
+  });
   actions.appendChild(editBtn);
   actions.appendChild(deleteBtn);
   card.appendChild(actions);
 
+  if (!inModal) {
+    card.addEventListener('click', (e) => {
+      if (e.target.closest('.card-actions') || e.target.closest('.card-favorite-btn')) return;
+      openCocktailModal(cocktail, unitMode, { showAvailability });
+    });
+  }
+
   return card;
+}
+
+/* ---------------------------------------------------------
+   Favorites — persisted to Supabase so they follow the collection
+   across devices, not just this browser.
+--------------------------------------------------------- */
+async function toggleFavorite(cocktail) {
+  const newVal = !cocktail.isFavorite;
+  cocktail.isFavorite = newVal;
+  renderBrowse();
+  renderShelf();
+  refreshModalIfShowing(cocktail.id);
+  try {
+    await updateFavoriteRemote(cocktail.id, newVal);
+  } catch (err) {
+    console.error('Failed to save favorite:', err);
+    cocktail.isFavorite = !newVal;
+    renderBrowse();
+    renderShelf();
+    refreshModalIfShowing(cocktail.id);
+    alert("Couldn't save that — check your connection and try again.");
+  }
+}
+
+/* ---------------------------------------------------------
+   Full-size cocktail view ("zoom") — an overlay showing the same card,
+   just bigger and with instructions expanded, not a new route.
+--------------------------------------------------------- */
+let activeModal = null; // { cocktailId, unitMode, opts } while the overlay is open
+
+function renderModalContent(cocktail) {
+  const slot = document.getElementById('modal-card-slot');
+  slot.innerHTML = '';
+  slot.appendChild(renderCard(cocktail, activeModal.unitMode, { ...activeModal.opts, expanded: true, inModal: true }));
+}
+
+function openCocktailModal(cocktail, unitMode, opts) {
+  activeModal = { cocktailId: cocktail.id, unitMode, opts };
+  renderModalContent(cocktail);
+  document.getElementById('cocktail-modal-overlay').hidden = false;
+  document.body.classList.add('modal-open');
+}
+
+function closeCocktailModal() {
+  if (!activeModal) return;
+  activeModal = null;
+  document.getElementById('cocktail-modal-overlay').hidden = true;
+  document.getElementById('modal-card-slot').innerHTML = '';
+  document.body.classList.remove('modal-open');
+}
+
+function refreshModalIfShowing(cocktailId) {
+  if (!activeModal || activeModal.cocktailId !== cocktailId) return;
+  const cocktail = state.cocktails.find(c => c.id === cocktailId);
+  if (!cocktail) { closeCocktailModal(); return; }
+  renderModalContent(cocktail);
+}
+
+function wireModal() {
+  const overlay = document.getElementById('cocktail-modal-overlay');
+  document.getElementById('modal-close-btn').addEventListener('click', closeCocktailModal);
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) closeCocktailModal();
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && activeModal) closeCocktailModal();
+  });
 }
 
 /* ---------------------------------------------------------
@@ -642,7 +761,9 @@ function renderBrowse() {
   const empty = document.getElementById('browse-empty');
   grid.innerHTML = '';
 
-  const matches = state.cocktails.filter(c => cocktailMatchesCategory(c, state.browseCategory));
+  const matches = state.cocktails
+    .filter(c => cocktailMatchesCategory(c, state.browseCategory))
+    .filter(c => cocktailMatchesSearch(c, state.browseSearch));
   matches.sort((a, b) => a.name.localeCompare(b.name));
 
   if (matches.length === 0) {
@@ -722,7 +843,9 @@ function renderShelf() {
   grid.innerHTML = '';
 
   const makeable = state.cocktails.filter(isMakeable);
-  const matches = makeable.filter(c => cocktailMatchesCategory(c, state.shelfCategory));
+  const matches = makeable
+    .filter(c => cocktailMatchesCategory(c, state.shelfCategory))
+    .filter(c => cocktailMatchesSearch(c, state.shelfSearch));
   matches.sort((a, b) => a.name.localeCompare(b.name));
 
   if (matches.length === 0) {
@@ -759,9 +882,25 @@ function wireUnitToggles() {
 }
 
 /* ---------------------------------------------------------
+   Search — filters live as you type, combined (AND) with whichever
+   category-rail filter is active.
+--------------------------------------------------------- */
+function wireSearchInputs() {
+  document.getElementById('search-browse').addEventListener('input', (e) => {
+    state.browseSearch = e.target.value;
+    renderBrowse();
+  });
+  document.getElementById('search-shelf').addEventListener('input', (e) => {
+    state.shelfSearch = e.target.value;
+    renderShelf();
+  });
+}
+
+/* ---------------------------------------------------------
    Navigation between views
 --------------------------------------------------------- */
 function switchView(viewName) {
+  closeCocktailModal();
   document.querySelectorAll('.nav-btn').forEach(b => {
     const active = b.dataset.view === viewName;
     b.classList.toggle('is-active', active);
@@ -983,7 +1122,8 @@ function wireAddForm() {
     statusEl.textContent = 'Saving…';
 
     if (state.editingId) {
-      const cocktail = { id: state.editingId, ...cocktailData };
+      const existing = state.cocktails.find(c => c.id === state.editingId);
+      const cocktail = { id: state.editingId, ...cocktailData, isFavorite: existing ? existing.isFavorite : false };
       try {
         await updateCocktailRemote(cocktail);
       } catch (err) {
@@ -1139,6 +1279,8 @@ function wireExportImport() {
 async function init() {
   wireNav();
   wireUnitToggles();
+  wireSearchInputs();
+  wireModal();
   populateGlassSelect();
   wireGlassField();
   wireAddForm();

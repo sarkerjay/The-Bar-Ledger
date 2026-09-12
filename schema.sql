@@ -11,8 +11,15 @@ create table if not exists cocktails (
   instructions text default '',
   garnish text default '',
   notes text default '',
+  is_favorite boolean not null default false,
   created_at timestamptz default now()
 );
+
+-- If your `cocktails` table already existed before `is_favorite` was added
+-- here, running this whole file again won't add the column on its own
+-- (`create table if not exists` is a no-op on an existing table). Run this
+-- once by hand in the SQL Editor instead:
+--   alter table cocktails add column is_favorite boolean not null default false;
 
 create table if not exists shelf (
   key text primary key,

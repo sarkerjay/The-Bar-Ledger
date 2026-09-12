@@ -196,6 +196,22 @@ main { padding: 0; }
   padding-left: 10px;
 }
 
+.category-btn .dot.star-dot {
+  width: auto;
+  height: auto;
+  transform: none;
+  background: none;
+  color: var(--gold);
+  font-size: 0.95rem;
+  line-height: 1;
+}
+
+.category-btn-favorites {
+  margin-bottom: 6px;
+  padding-bottom: 11px;
+  border-bottom: 1px solid var(--ink-line);
+}
+
 .view-content {
   flex: 1;
   padding: 24px 28px 60px;
@@ -239,6 +255,25 @@ main { padding: 0; }
   font-weight: 700;
 }
 
+.search-wrap {
+  margin-left: auto;
+  flex: 1 1 200px;
+  max-width: 280px;
+}
+
+.search-input {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid var(--ink-line);
+  border-radius: var(--radius);
+  background: var(--ink-soft);
+  color: var(--paper);
+}
+
+.search-input::placeholder { color: var(--paper-dim); opacity: 0.7; }
+
+.search-input:focus-visible { outline-offset: 0; }
+
 .empty-state {
   color: var(--paper-dim);
   font-style: italic;
@@ -263,6 +298,26 @@ main { padding: 0; }
   border: 1px solid var(--paper-line);
   border-top: 3px solid var(--gold);
 }
+
+.cocktail-card.is-clickable { cursor: pointer; }
+.cocktail-card.is-clickable:hover { border-color: var(--gold); }
+
+.card-favorite-btn {
+  position: absolute;
+  top: -8px;
+  right: 12px;
+  background: var(--paper);
+  border: none;
+  color: var(--gold);
+  font-size: 1.5rem;
+  line-height: 1;
+  padding: 6px 8px;
+  cursor: pointer;
+  border-radius: 50%;
+}
+
+.card-favorite-btn:hover { color: var(--gold-bright); }
+.card-favorite-btn.is-active { color: var(--gold); }
 
 .card-tab {
   position: absolute;
@@ -376,6 +431,61 @@ main { padding: 0; }
 .card-action-btn.is-delete:hover { color: var(--burgundy); }
 
 /* ---------------------------------------------------------
+   Cocktail zoom overlay — a bigger version of the same card, not a
+   different visual language.
+--------------------------------------------------------- */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(20, 17, 14, 0.78);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 32px 20px;
+  z-index: 100;
+}
+
+.modal-overlay[hidden] { display: none; }
+
+body.modal-open { overflow: hidden; }
+
+.modal-dialog {
+  position: relative;
+  width: 100%;
+  max-width: 560px;
+  max-height: calc(100vh - 64px);
+  overflow-y: auto;
+  border-radius: var(--radius);
+}
+
+.modal-dialog .cocktail-card-modal {
+  padding: 34px 30px 26px;
+  border-top-width: 5px;
+}
+
+.modal-dialog .card-name { font-size: 1.7rem; }
+.modal-dialog .card-ingredients { font-size: 1.02rem; }
+.modal-dialog .card-instructions p { font-size: 1rem; }
+
+.modal-close-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 1px solid var(--ink-line);
+  background: var(--ink-soft);
+  color: var(--paper);
+  font-size: 1.3rem;
+  line-height: 1;
+  cursor: pointer;
+  z-index: 1;
+}
+
+.modal-close-btn:hover { border-color: var(--gold); color: var(--gold-bright); }
+
+/* ---------------------------------------------------------
    Shelf manager
 --------------------------------------------------------- */
 .shelf-manager {
@@ -469,6 +579,11 @@ main { padding: 0; }
   color: var(--ink);
   border-radius: var(--radius);
   border-top: 3px solid var(--gold);
+  /* .view.is-active is a flex container — without this, a flex item's
+     default min-width:auto lets its fixed-width grid/select content (the
+     ingredient grid, glass select, etc.) force this whole form wider than
+     the viewport instead of shrinking to fit it. */
+  min-width: 0;
 }
 
 .add-form h2 {
@@ -509,7 +624,7 @@ main { padding: 0; }
   gap: 10px;
 }
 
-.glass-field-row select { flex: 1; }
+.glass-field-row select { flex: 1; min-width: 0; }
 
 .glass-icon-preview {
   display: inline-flex;
@@ -548,7 +663,10 @@ main { padding: 0; }
 
 .ingredient-row {
   display: grid;
-  grid-template-columns: 70px 100px 1fr auto;
+  /* minmax(0, 1fr), not a bare 1fr — a bare 1fr track won't shrink below
+     its content's min-content size, which forces the whole form wider
+     than the viewport on narrow phones. */
+  grid-template-columns: 70px 100px minmax(0, 1fr) auto;
   gap: 8px;
   align-items: center;
   margin-bottom: 8px;
@@ -577,14 +695,19 @@ main { padding: 0; }
 .ingredient-row-extra {
   grid-column: 1 / -1;
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 8px;
+  gap: 6px 8px;
   font-size: 0.85rem;
   margin: -2px 0 6px;
 }
 
+.ingredient-row-extra label { flex: 1 1 auto; min-width: 0; }
+
 .ingredient-row-extra select,
 .ingredient-row-extra input[type="text"] {
+  flex: 1 1 120px;
+  min-width: 0;
   padding: 5px 8px;
   border-radius: var(--radius);
   border: 1px solid var(--paper-line);
@@ -633,19 +756,109 @@ main { padding: 0; }
    Responsive
 --------------------------------------------------------- */
 @media (max-width: 780px) {
-  .view.is-active { flex-direction: column; }
+  /* .view.is-active's align-items:flex-start (set above for the desktop
+     row layout, so the rail and content column don't stretch to match
+     each other's height) governs the horizontal axis once flex-direction
+     flips to column here — without overriding it back to stretch, the
+     rail and add-form size to their own content width instead of filling
+     the screen, which is what was actually forcing horizontal overflow. */
+  .view.is-active { flex-direction: column; align-items: stretch; }
   .category-rail {
     width: 100%;
     flex-direction: row;
     overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
     position: static;
     padding: 14px 16px;
     gap: 6px;
   }
-  .category-btn { flex-shrink: 0; }
+  .category-btn {
+    flex-shrink: 0;
+    min-height: 40px;
+  }
+  .category-btn-favorites {
+    border-bottom: none;
+    border-right: 1px solid var(--ink-line);
+    margin-bottom: 0;
+    margin-right: 2px;
+    padding-bottom: 9px;
+    padding-right: 14px;
+  }
   .view-content { padding: 16px; }
   .add-form { margin: 16px; }
-  .ingredient-row { grid-template-columns: 60px 90px 1fr auto; }
-  .app-header { padding: 14px 16px; }
+
+  /* Header: brand + Export/Import share a row, nav pills wrap to their
+     own full-width row underneath so nothing overflows or crowds. */
+  .app-header {
+    padding: 14px 16px;
+    gap: 10px 8px;
+  }
   .app-header::after { left: 16px; right: 16px; }
+  .brand { margin-right: 0; flex: 1 1 auto; font-size: 1.3rem; }
+  .header-actions { flex-shrink: 0; }
+  .main-nav {
+    order: 3;
+    width: 100%;
+    justify-content: stretch;
+  }
+  .main-nav .nav-btn {
+    flex: 1;
+    text-align: center;
+    padding: 10px 6px;
+    min-height: 40px;
+  }
+  .ghost-btn { padding: 9px 12px; min-height: 40px; }
+
+  /* Toolbar: let the search box drop to its own full-width row instead
+     of squeezing in next to the unit toggle. */
+  .toolbar { flex-wrap: wrap; row-gap: 10px; }
+  .search-wrap { order: 3; flex: 1 1 100%; max-width: none; margin-left: 0; }
+
+  /* Ingredient editor: the 4-column grid gets too cramped for a phone —
+     stack amount/unit/remove on one line and let the name field take
+     its own full-width row underneath. */
+  .ingredient-row {
+    grid-template-columns: 70px minmax(0, 1fr) auto;
+    grid-template-areas: "amount unit remove" "name name name";
+    row-gap: 6px;
+  }
+  .ingredient-row .ing-amount { grid-area: amount; }
+  .ingredient-row .ing-unit { grid-area: unit; }
+  .ingredient-row .ing-name { grid-area: name; }
+  .ingredient-row .row-remove { grid-area: remove; }
+
+  .card-grid { grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); }
+
+  /* Zoom overlay goes full-screen on small viewports rather than staying
+     a small centered dialog. */
+  .modal-overlay { padding: 0; }
+  .modal-dialog {
+    width: 100%;
+    max-width: none;
+    height: 100%;
+    max-height: none;
+    border-radius: 0;
+    /* Full-screen on mobile means fully opaque, not just as tall as the
+       card's own content — otherwise short cocktails leave a gap where
+       the dimmed page underneath shows through. */
+    background: var(--paper);
+  }
+  .modal-dialog .cocktail-card-modal {
+    min-height: 100%;
+    border-radius: 0;
+    border-left: none;
+    border-right: none;
+    padding: 56px 18px 32px;
+  }
+  .modal-close-btn {
+    top: 12px;
+    right: 12px;
+    width: 40px;
+    height: 40px;
+  }
+
+  .card-favorite-btn {
+    padding: 9px 11px;
+    top: -6px;
+  }
 }
