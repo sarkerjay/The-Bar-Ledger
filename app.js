@@ -267,6 +267,7 @@ const state = {
   browseSearch: '',
   shelfSearch: '',
   editingId: null,   // id of the cocktail currently being edited, or null
+  editingReturnView: null, // view to return to once editing finishes ('browse'/'shelf')
 };
 
 // Reserved rail key for the pinned "★ Favorites" entry — distinct from any
@@ -380,14 +381,16 @@ function cocktailMatchesCategory(cocktail, activeKey) {
   return getBaseIngredients(cocktail).some(i => categoryKey(i.category) === activeKey);
 }
 
-// Search matches against the cocktail's own name AND its ingredient names
-// (base or not) — e.g. "campari" surfaces the Negroni. Case-insensitive
-// substring match, no fuzzy matching.
+// Search matches against the cocktail's own name, its ingredient names
+// (base or not), and its garnish — e.g. "campari" surfaces the Negroni,
+// "mint" surfaces the Mojito via its garnish. Case-insensitive substring
+// match, no fuzzy matching.
 function cocktailMatchesSearch(cocktail, query) {
   const q = (query || '').trim().toLowerCase();
   if (!q) return true;
   if (cocktail.name.toLowerCase().includes(q)) return true;
-  return cocktail.ingredients.some(i => i.name.toLowerCase().includes(q));
+  if (cocktail.ingredients.some(i => i.name.toLowerCase().includes(q))) return true;
+  return (cocktail.garnish || '').toLowerCase().includes(q);
 }
 
 // Favorited cocktails first (A-Z among themselves), then everything else
@@ -906,6 +909,11 @@ function wireSearchInputs() {
 /* ---------------------------------------------------------
    Navigation between views
 --------------------------------------------------------- */
+function getActiveViewName() {
+  const activeBtn = document.querySelector('.nav-btn.is-active');
+  return activeBtn ? activeBtn.dataset.view : 'browse';
+}
+
 function switchView(viewName) {
   closeCocktailModal();
   document.querySelectorAll('.nav-btn').forEach(b => {
@@ -1024,6 +1032,7 @@ function resetGlassField() {
 
 function startEdit(cocktail) {
   state.editingId = cocktail.id;
+  state.editingReturnView = getActiveViewName();
   switchView('add');
 
   document.getElementById('field-name').value = cocktail.name || '';
@@ -1056,6 +1065,15 @@ function cancelEdit() {
   resetGlassField();
   setFormMode('add');
   document.getElementById('form-status').textContent = '';
+
+  const returnView = state.editingReturnView;
+  state.editingReturnView = null;
+  // Only auto-navigate when this is actually finishing an edit from the
+  // Add view — deleteCocktail() also calls cancelEdit() as cleanup when
+  // the cocktail being edited gets deleted from elsewhere, and that
+  // shouldn't yank the user to a different view than the one they're on.
+  const onAddView = document.getElementById('view-add').classList.contains('is-active');
+  if (returnView && onAddView) switchView(returnView);
 }
 
 async function deleteCocktail(id) {
