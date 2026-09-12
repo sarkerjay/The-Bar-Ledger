@@ -390,6 +390,13 @@ function cocktailMatchesSearch(cocktail, query) {
   return cocktail.ingredients.some(i => i.name.toLowerCase().includes(q));
 }
 
+// Favorited cocktails first (A-Z among themselves), then everything else
+// (A-Z) — used everywhere a grid of cocktails gets sorted.
+function compareCocktails(a, b) {
+  if (!!a.isFavorite !== !!b.isFavorite) return a.isFavorite ? -1 : 1;
+  return a.name.localeCompare(b.name);
+}
+
 function primaryTabLabel(cocktail) {
   const bases = getBaseIngredients(cocktail);
   return bases.length ? (bases[0].category || 'Other').trim() : 'Uncategorized';
@@ -764,7 +771,7 @@ function renderBrowse() {
   const matches = state.cocktails
     .filter(c => cocktailMatchesCategory(c, state.browseCategory))
     .filter(c => cocktailMatchesSearch(c, state.browseSearch));
-  matches.sort((a, b) => a.name.localeCompare(b.name));
+  matches.sort(compareCocktails);
 
   if (matches.length === 0) {
     empty.hidden = false;
@@ -846,7 +853,7 @@ function renderShelf() {
   const matches = makeable
     .filter(c => cocktailMatchesCategory(c, state.shelfCategory))
     .filter(c => cocktailMatchesSearch(c, state.shelfSearch));
-  matches.sort((a, b) => a.name.localeCompare(b.name));
+  matches.sort(compareCocktails);
 
   if (matches.length === 0) {
     empty.hidden = false;
