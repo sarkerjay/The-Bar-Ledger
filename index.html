@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>The Bar Ledger — Personal Cocktail Database</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;600;700&family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="status-banner" class="status-banner" hidden></div>
+  <header class="app-header">
+    <h1 class="brand">The Bar Ledger</h1>
+    <nav class="main-nav" role="tablist">
+      <button class="nav-btn is-active" data-view="browse" role="tab" aria-selected="true">Browse</button>
+      <button class="nav-btn" data-view="shelf" role="tab" aria-selected="false">My Shelf</button>
+      <button class="nav-btn" data-view="add" role="tab" aria-selected="false">Add Cocktail</button>
+    </nav>
+    <div class="header-actions">
+      <button id="export-btn" class="ghost-btn" type="button" title="Download a backup file of your collection">Export</button>
+      <label class="ghost-btn file-btn" title="Load cocktails from a backup file">
+        Import
+        <input type="file" id="import-input" accept="application/json" hidden />
+      </label>
+    </div>
+  </header>
+
+  <main>
+    <!-- Browse View -->
+    <section id="view-browse" class="view is-active" aria-labelledby="nav-browse">
+      <aside class="category-rail" id="browse-categories"></aside>
+      <div class="view-content">
+        <div class="toolbar">
+          <span class="toolbar-label">Measurements</span>
+          <div class="unit-toggle" id="unit-toggle-browse" role="radiogroup" aria-label="Measurement units">
+            <button data-unit="oz" class="unit-btn is-active" type="button">oz</button>
+            <button data-unit="ml" class="unit-btn" type="button">ml</button>
+            <button data-unit="ratio" class="unit-btn" type="button">ratio</button>
+          </div>
+        </div>
+        <div class="card-grid" id="browse-grid"></div>
+        <p class="empty-state" id="browse-empty" hidden>No cocktails in this category yet. Add one from the "Add Cocktail" tab.</p>
+      </div>
+    </section>
+
+    <!-- Shelf View -->
+    <section id="view-shelf" class="view" aria-labelledby="nav-shelf">
+      <aside class="category-rail" id="shelf-categories"></aside>
+      <div class="view-content">
+        <details class="shelf-manager" id="shelf-manager" open>
+          <summary>Manage what's on your shelf</summary>
+          <p class="field-hint">Toggle on the spirits, liqueurs and vermouths you currently have. Mixers, juices and garnishes aren't tracked here.</p>
+          <div class="shelf-groups" id="shelf-groups"></div>
+        </details>
+        <div class="toolbar">
+          <span class="toolbar-label">Measurements</span>
+          <div class="unit-toggle" id="unit-toggle-shelf" role="radiogroup" aria-label="Measurement units">
+            <button data-unit="oz" class="unit-btn is-active" type="button">oz</button>
+            <button data-unit="ml" class="unit-btn" type="button">ml</button>
+            <button data-unit="ratio" class="unit-btn" type="button">ratio</button>
+          </div>
+        </div>
+        <div class="card-grid" id="shelf-grid"></div>
+        <p class="empty-state" id="shelf-empty" hidden>Nothing fully makeable yet. Toggle a few spirits above to see what you can pour.</p>
+      </div>
+    </section>
+
+    <!-- Add Cocktail View -->
+    <section id="view-add" class="view" aria-labelledby="nav-add">
+      <form id="add-form" class="add-form">
+        <h2 id="add-form-heading">Add a cocktail</h2>
+
+        <label class="field">
+          <span>Name</span>
+          <input type="text" name="name" id="field-name" required placeholder="e.g. Paper Plane" />
+        </label>
+        <label class="field">
+          <span>Glass</span>
+          <div class="glass-field-row">
+            <select name="glassType" id="field-glass-type">
+              <option value="">— none / unspecified —</option>
+            </select>
+            <span class="glass-icon-preview" id="glass-icon-preview" aria-hidden="true"></span>
+          </div>
+          <input type="text" id="field-glass-custom" placeholder="Name this glass" hidden />
+        </label>
+
+        <div class="ingredients-editor">
+          <div class="ingredients-header">
+            <span>Ingredients</span>
+            <button type="button" id="add-ingredient-btn" class="ghost-btn">+ Add ingredient</button>
+          </div>
+          <div id="ingredient-rows"></div>
+          <p class="field-hint">Check "on my shelf" for spirits, liqueurs and vermouths — anything worth tracking as in-stock. Leave mixers, juices and garnishes unchecked; they're assumed always on hand.</p>
+        </div>
+
+        <label class="field">
+          <span>Instructions</span>
+          <textarea name="instructions" id="field-instructions" rows="4" required placeholder="Stir, strain, garnish..."></textarea>
+        </label>
+        <label class="field">
+          <span>Garnish <em>(optional)</em></span>
+          <input type="text" name="garnish" id="field-garnish" placeholder="e.g. orange twist" />
+        </label>
+        <label class="field">
+          <span>Notes <em>(optional)</em></span>
+          <textarea name="notes" id="field-notes" rows="3" placeholder="Tweaks, history, who you made it for..."></textarea>
+        </label>
+
+        <datalist id="category-datalist"></datalist>
+
+        <div class="form-buttons">
+          <button type="submit" class="primary-btn" id="form-submit-btn">Save cocktail</button>
+          <button type="button" class="ghost-btn" id="cancel-edit-btn" hidden>Cancel edit</button>
+        </div>
+        <p class="form-status" id="form-status" role="status"></p>
+      </form>
+    </section>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="config.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

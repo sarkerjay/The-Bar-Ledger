@@ -1,0 +1,887 @@
+{
+  "cocktails": [
+    {
+      "name": "Negroni",
+      "glassType": "rocks",
+      "ingredients": [
+        {
+          "name": "Gin",
+          "amount": 30,
+          "unit": "ml",
+          "isBase": true,
+          "category": "Gin"
+        },
+        {
+          "name": "Campari",
+          "amount": 30,
+          "unit": "ml",
+          "isBase": true,
+          "category": "Liqueur"
+        },
+        {
+          "name": "Sweet Red Vermouth",
+          "amount": 30,
+          "unit": "ml",
+          "isBase": true,
+          "category": "Vermouth"
+        }
+      ],
+      "instructions": "Stir with ice, strain over fresh ice.",
+      "garnish": "Orange peel"
+    },
+    {
+      "name": "Gin & Tonic",
+      "glassType": "highball",
+      "ingredients": [
+        {
+          "name": "Gin",
+          "amount": 60,
+          "unit": "ml",
+          "isBase": true,
+          "category": "Gin"
+        },
+        {
+          "name": "Tonic Water",
+          "amount": 120,
+          "unit": "ml",
+          "isBase": false
+        }
+      ],
+      "instructions": "Build over ice.",
+      "garnish": "Lime, cucumber, or herbs"
+    },
+    {
+      "name": "Tom Collins",
+      "glassType": "collins",
+      "ingredients": [
+        {
+          "name": "London Dry Gin",
+          "amount": 60,
+          "unit": "ml",
+          "isBase": true,
+          "category": "Gin"
+        },
+        {
+          "name": "Lemon Juice, freshly squeezed",
+          "amount": 30,
+          "unit": "ml",
+          "isBase": false
+        },
+        {
+          "name": "Simple Syrup",
+          "amount": 15,
+          "unit": "ml",
+          "isBase": false
+        },
+        {
+          "name": "Soda Water",
+          "amount": 1,
+          "unit": "top",
+          "isBase": false
+        }
+      ],
+      "instructions": "Shake gin, lemon, and syrup with ice. Strain into an ice-filled highball and top with soda.",
+      "garnish": "Lemon wheel / maraschino cherry"
+    },
+    {
+      "name": "French 75",
+      "glassType": "flute",
+      "ingredients": [
+        {
+          "name": "Gin",
+          "amount": 30,
+          "unit": "ml",
+          "isBase": true,
+          "category": "Gin"
+        },
+        {
+          "name": "Lemon Juice",
+          "amount": 15,
+          "unit": "ml",
+          "isBase": false
+        },
+        {
+          "name": "Simple Syrup",
+          "amount": 15,
+          "unit": "ml",
+          "isBase": false
+        },
+        {
+          "name": "Champagne or Prosecco",
+          "amount": 1,
+          "unit": "top",
+          "isBase": false
+        }
+      ],
+      "instructions": "Shake gin, lemon, and syrup with ice. Strain into a flute and top with sparkling wine, stir gently.",
+      "garnish": "",
+      "notes": "Top with roughly 60-90 ml Champagne or prosecco, to taste."
+    },
+    {
+      "name": "Gimlet",
+      "glassType": "coupe",
+      "ingredients": [
+        {
+          "name": "Gin",
+          "amount": 60,
+          "unit": "ml",
+          "isBase": true,
+          "category": "Gin"
+        },
+        {
+          "name": "Lime Juice",
+          "amount": 22.5,
+          "unit": "ml",
+          "isBase": false
+        },
+        {
+          "name": "Simple Syrup",
+          "amount": 15,
+          "unit": "ml",
+          "isBase": false
+        }
+      ],
+      "instructions": "Shake with ice and strain into a coupe (or serve over ice).",
+      "garnish": "Lime"
+    },
+    {
+      "name": "Southside",
+      "glassType": "coupe",
+      "ingredients": [
+        {
+          "name": "Gin",
+          "amount": 60,
+          "unit": "ml",
+          "isBase": true,
+          "category": "Gin"
+        },
+        {
+          "name": "Lime or Lemon Juice",
+          "amount": 22.5,
+          "unit": "ml",
+          "isBase": false
+        },
+        {
+          "name": "Simple Syrup",
+          "amount": 22.5,
+          "unit": "ml",
+          "isBase": false
+        },
+        {
+          "name": "Mint Leaves",
+          "amount": 9,
+          "unit": "whole",
+          "isBase": false
+        }
+      ],
+      "instructions": "Shake gently with ice, fine strain.",
+      "garnish": "Mint",
+      "notes": "Optional: add a dash of bitters."
+    },
+    {
+      "name": "Bee's Knees",
+      "glassType": "coupe",
+      "ingredients": [
+        {
+          "name": "Gin",
+          "amount": 60,
+          "unit": "ml",
+          "isBase": true,
+          "category": "Gin"
+        },
+        {
+          "name": "Lemon Juice",
+          "amount": 22.5,
+          "unit": "ml",
+          "isBase": false
+        },
+        {
+          "name": "Honey Syrup",
+          "amount": 22.5,
+          "unit": "ml",
+          "isBase": false
+        }
+      ],
+      "instructions": "Shake with ice and strain into a coupe.",
+      "garnish": "Lemon",
+      "notes": "Honey syrup: 15-22.5 ml, to taste."
+    },
+    {
+      "name": "Clover Club",
+      "glassType": "coupe",
+      "ingredients": [
+        {
+          "name": "Gin",
+          "amount": 60,
+          "unit": "ml",
+          "isBase": true,
+          "category": "Gin"
+        },
+        {
+          "name": "Lemon Juice",
+          "amount": 15,
+          "unit": "ml",
+          "isBase": false
+        },
+        {
+          "name": "Raspberry Syrup",
+          "amount": 15,
+          "unit": "ml",
+          "isBase": false
+        },
+        {
+          "name": "Egg White",
+          "amount": 1,
+          "unit": "whole",
+          "isBase": false
+        }
+      ],
+      "instructions": "Dry shake first, then shake with ice. Fine strain into a coupe.",
+      "garnish": "3 raspberries"
+    },
+    {
+      "name": "Bramble",
+      "glassType": "rocks",
+      "ingredients": [
+        {
+          "name": "Gin",
+          "amount": 60,
+          "unit": "ml",
+          "isBase": true,
+          "category": "Gin"
+        },
+        {
+          "name": "Lemon Juice",
+          "amount": 22.5,
+          "unit": "ml",
+          "isBase": false
+        },
+        {
+          "name": "Simple Syrup",
+          "amount": 15,
+          "unit": "ml",
+          "isBase": false
+        },
+        {
+          "name": "Blackberry Liqueur (or purée/syrup)",
+          "amount": 15,
+          "unit": "ml",
+          "isBase": false
+        }
+      ],
+      "instructions": "Shake gin, lemon, and syrup with ice. Strain over crushed or cubed ice and drizzle blackberry on top.",
+      "garnish": "Lemon half-wheel and a fresh blackberry"
+    },
+    {
+      "name": "Gin Fizz",
+      "glassType": "highball",
+      "ingredients": [
+        {
+          "name": "Gin",
+          "amount": 60,
+          "unit": "ml",
+          "isBase": true,
+          "category": "Gin"
+        },
+        {
+          "name": "Lemon Juice",
+          "amount": 30,
+          "unit": "ml",
+          "isBase": false
+        },
+        {
+          "name": "Simple Syrup",
+          "amount": 22.5,
+          "unit": "ml",
+          "isBase": false
+        },
+        {
+          "name": "Egg White",
+          "amount": 1,
+          "unit": "whole",
+          "isBase": false
+        },
+        {
+          "name": "Soda Water",
+          "amount": 1,
+          "unit": "top",
+          "isBase": false
+        }
+      ],
+      "instructions": "Dry shake everything but soda, then shake hard with ice. Strain into a highball, and top with soda.",
+      "garnish": ""
+    },
+    {
+      "name": "Ramos Gin Fizz",
+      "glassType": "collins",
+      "ingredients": [
+        {
+          "name": "Gin",
+          "amount": 60,
+          "unit": "ml",
+          "isBase": true,
+          "category": "Gin"
+        },
+        {
+          "name": "Simple Syrup",
+          "amount": 22.5,
+          "unit": "ml",
+          "isBase": false
+        },
+        {
+          "name": "Heavy Cream",
+          "amount": 15,
+          "unit": "ml",
+          "isBase": false
+        },
+        {
+          "name": "Lemon Juice, freshly squeezed",
+          "amount": 15,
+          "unit": "ml",
+          "isBase": false
+        },
+        {
+          "name": "Lime Juice, freshly squeezed",
+          "amount": 15,
+          "unit": "ml",
+          "isBase": false
+        },
+        {
+          "name": "Orange Flower Water",
+          "amount": 3,
+          "unit": "dash",
+          "isBase": false
+        },
+        {
+          "name": "Egg White",
+          "amount": 1,
+          "unit": "whole",
+          "isBase": false
+        },
+        {
+          "name": "Club Soda (optional, to top)",
+          "amount": 1,
+          "unit": "top",
+          "isBase": false
+        }
+      ],
+      "instructions": "Dry shake first, then shake hard with ice. Strain into a tall glass. Top with soda if desired.",
+      "garnish": ""
+    },
+    {
+      "name": "Gin Basil Smash",
+      "glassType": "rocks",
+      "ingredients": [
+        {
+          "name": "Gin",
+          "amount": 60,
+          "unit": "ml",
+          "isBase": true,
+          "category": "Gin"
+        },
+        {
+          "name": "Lemon Juice",
+          "amount": 22.5,
+          "unit": "ml",
+          "isBase": false
+        },
+        {
+          "name": "Simple Syrup",
+          "amount": 22.5,
+          "unit": "ml",
+          "isBase": false
+        },
+        {
+          "name": "Basil Leaves",
+          "amount": 10,
+          "unit": "whole",
+          "isBase": false
+        }
+      ],
+      "instructions": "Shake with ice and strain into a rocks glass over fresh ice.",
+      "garnish": ""
+    },
+    {
+      "name": "Old Fashioned",
+      "glassType": "rocks",
+      "ingredients": [
+        {
+          "name": "Whiskey (Bourbon/Rye)",
+          "amount": 60,
+          "unit": "ml",
+          "isBase": true,
+          "category": "Whiskey"
+        },
+        {
+          "name": "Simple Syrup",
+          "amount": 10,
+          "unit": "ml",
+          "isBase": false
+        },
+        {
+          "name": "Bitters",
+          "amount": 3,
+          "unit": "dash",
+          "isBase": true,
+          "category": "Bitters"
+        }
+      ],
+      "instructions": "Stir with ice, strain into rocks glass over a large ice cube.",
+      "garnish": "Expressed orange peel or cherry"
+    },
+    {
+      "name": "Manhattan",
+      "glassType": "coupe",
+      "ingredients": [
+        {
+          "name": "Whiskey (Bourbon/Rye)",
+          "amount": 60,
+          "unit": "ml",
+          "isBase": true,
+          "category": "Whiskey"
+        },
+        {
+          "name": "Sweet Vermouth",
+          "amount": 30,
+          "unit": "ml",
+          "isBase": true,
+          "category": "Vermouth"
+        },
+        {
+          "name": "Bitters",
+          "amount": 2,
+          "unit": "dash",
+          "isBase": true,
+          "category": "Bitters"
+        }
+      ],
+      "instructions": "Stir with ice and strain into a coupe.",
+      "garnish": "Cherry or lemon"
+    },
+    {
+      "name": "Whiskey Sour",
+      "glassType": "rocks",
+      "ingredients": [
+        {
+          "name": "Whiskey (Bourbon/Rye)",
+          "amount": 60,
+          "unit": "ml",
+          "isBase": true,
+          "category": "Whiskey"
+        },
+        {
+          "name": "Lemon Juice",
+          "amount": 22.5,
+          "unit": "ml",
+          "isBase": false
+        },
+        {
+          "name": "Simple Syrup",
+          "amount": 15,
+          "unit": "ml",
+          "isBase": false
+        },
+        {
+          "name": "Egg White (optional)",
+          "amount": 1,
+          "unit": "whole",
+          "isBase": false
+        }
+      ],
+      "instructions": "Shake with ice and strain. If using egg white, dry shake first.",
+      "garnish": "3-4 dashes Angostura bitters"
+    },
+    {
+      "name": "New York Sour",
+      "glassType": "rocks",
+      "ingredients": [
+        {
+          "name": "Whiskey (Bourbon/Rye)",
+          "amount": 60,
+          "unit": "ml",
+          "isBase": true,
+          "category": "Whiskey"
+        },
+        {
+          "name": "Lemon Juice",
+          "amount": 22.5,
+          "unit": "ml",
+          "isBase": false
+        },
+        {
+          "name": "Simple Syrup",
+          "amount": 15,
+          "unit": "ml",
+          "isBase": false
+        },
+        {
+          "name": "Egg White (optional)",
+          "amount": 1,
+          "unit": "whole",
+          "isBase": false
+        },
+        {
+          "name": "Dry Red Wine (float)",
+          "amount": 15,
+          "unit": "ml",
+          "isBase": false
+        }
+      ],
+      "instructions": "Shake all but the wine with ice and strain (dry shake first if using egg white). Float the red wine on top.",
+      "garnish": ""
+    },
+    {
+      "name": "Boulevardier",
+      "glassType": "coupe",
+      "ingredients": [
+        {
+          "name": "Whiskey (Bourbon/Rye)",
+          "amount": 45,
+          "unit": "ml",
+          "isBase": true,
+          "category": "Whiskey"
+        },
+        {
+          "name": "Campari",
+          "amount": 30,
+          "unit": "ml",
+          "isBase": true,
+          "category": "Liqueur"
+        },
+        {
+          "name": "Sweet Vermouth",
+          "amount": 30,
+          "unit": "ml",
+          "isBase": true,
+          "category": "Vermouth"
+        }
+      ],
+      "instructions": "Stir well with ice. Strain into a chilled cocktail glass.",
+      "garnish": "Orange peel, optional lemon zest"
+    },
+    {
+      "name": "Gold Rush",
+      "glassType": "rocks",
+      "ingredients": [
+        {
+          "name": "Whiskey (Bourbon/Rye)",
+          "amount": 60,
+          "unit": "ml",
+          "isBase": true,
+          "category": "Whiskey"
+        },
+        {
+          "name": "Lemon Juice",
+          "amount": 22.5,
+          "unit": "ml",
+          "isBase": false
+        },
+        {
+          "name": "Honey Syrup",
+          "amount": 22.5,
+          "unit": "ml",
+          "isBase": false
+        }
+      ],
+      "instructions": "Shake with ice and strain over fresh ice.",
+      "garnish": "Lemon twist"
+    },
+    {
+      "name": "Whiskey Smash",
+      "glassType": "rocks",
+      "ingredients": [
+        {
+          "name": "Whiskey (Bourbon/Rye)",
+          "amount": 60,
+          "unit": "ml",
+          "isBase": true,
+          "category": "Whiskey"
+        },
+        {
+          "name": "Lemon Juice",
+          "amount": 22.5,
+          "unit": "ml",
+          "isBase": false
+        },
+        {
+          "name": "Simple Syrup",
+          "amount": 22.5,
+          "unit": "ml",
+          "isBase": false
+        },
+        {
+          "name": "Mint Leaves",
+          "amount": 7,
+          "unit": "whole",
+          "isBase": false
+        }
+      ],
+      "instructions": "Muddle the lemon (or add juice) in a shaker. Add other ingredients. Shake with ice and strain over crushed or fresh ice.",
+      "garnish": "",
+      "notes": "Can muddle 3 lemon wedges instead of the measured lemon juice."
+    },
+    {
+      "name": "Mint Julep",
+      "glassType": "julep",
+      "ingredients": [
+        {
+          "name": "Bourbon Whiskey",
+          "amount": 60,
+          "unit": "ml",
+          "isBase": true,
+          "category": "Whiskey"
+        },
+        {
+          "name": "Simple Syrup",
+          "amount": 15,
+          "unit": "ml",
+          "isBase": false
+        },
+        {
+          "name": "Mint Leaves",
+          "amount": 9,
+          "unit": "whole",
+          "isBase": false
+        }
+      ],
+      "instructions": "Lightly muddle mint with syrup, add whiskey, fill with crushed ice.",
+      "garnish": "Mint bouquet, optional Angostura bitters",
+      "notes": "Simple syrup: 7.5-15 ml, to taste."
+    },
+    {
+      "name": "Hot Whiskey",
+      "glassType": "other",
+      "glassCustom": "Hot Toddy Glass",
+      "ingredients": [
+        {
+          "name": "Irish Whiskey",
+          "amount": 50,
+          "unit": "ml",
+          "isBase": true,
+          "category": "Whiskey"
+        },
+        {
+          "name": "Brown Sugar",
+          "amount": 1,
+          "unit": "tsp",
+          "isBase": false
+        },
+        {
+          "name": "Cloves",
+          "amount": 4,
+          "unit": "whole",
+          "isBase": false
+        },
+        {
+          "name": "Lemon Slice",
+          "amount": 1,
+          "unit": "whole",
+          "isBase": false
+        },
+        {
+          "name": "Boiling Water",
+          "amount": 1,
+          "unit": "top",
+          "isBase": false
+        }
+      ],
+      "instructions": "Warm a heatproof glass. Add whiskey and sugar, add a lemon slice studded with cloves. Top with boiling water and stir until the sugar dissolves.",
+      "garnish": "Lemon slice studded with cloves, optional cinnamon stick",
+      "notes": "Filled in a classic hot whiskey recipe since your notes just said \"make it yum\" - edit freely."
+    },
+    {
+      "name": "Irish Coffee",
+      "glassType": "other",
+      "glassCustom": "Irish Coffee Glass",
+      "ingredients": [
+        {
+          "name": "Irish Whiskey",
+          "amount": 45,
+          "unit": "ml",
+          "isBase": true,
+          "category": "Whiskey"
+        },
+        {
+          "name": "Brown Sugar",
+          "amount": 1.5,
+          "unit": "tsp",
+          "isBase": false
+        },
+        {
+          "name": "Hot Brewed Coffee",
+          "amount": 1,
+          "unit": "top",
+          "isBase": false
+        },
+        {
+          "name": "Lightly Whipped Double Cream (floated on top)",
+          "amount": 30,
+          "unit": "ml",
+          "isBase": false
+        }
+      ],
+      "instructions": "Stir sugar into hot coffee until dissolved, add whiskey. Gently float lightly whipped cream on top by pouring over the back of a spoon; do not stir after.",
+      "garnish": "",
+      "notes": "Filled in a classic Irish coffee recipe since your notes just said \"make it yum\" - edit freely."
+    },
+    {
+      "name": "Campari Spritz",
+      "glassType": "wine",
+      "ingredients": [
+        {
+          "name": "Campari",
+          "amount": 60,
+          "unit": "ml",
+          "isBase": true,
+          "category": "Liqueur"
+        },
+        {
+          "name": "Prosecco",
+          "amount": 90,
+          "unit": "ml",
+          "isBase": false
+        },
+        {
+          "name": "Soda Water",
+          "amount": 30,
+          "unit": "ml",
+          "isBase": false
+        }
+      ],
+      "instructions": "Build over ice.",
+      "garnish": "Orange"
+    },
+    {
+      "name": "Garibaldi",
+      "glassType": "highball",
+      "ingredients": [
+        {
+          "name": "Campari",
+          "amount": 45,
+          "unit": "ml",
+          "isBase": true,
+          "category": "Liqueur"
+        },
+        {
+          "name": "Fresh Orange Juice",
+          "amount": 120,
+          "unit": "ml",
+          "isBase": false
+        }
+      ],
+      "instructions": "Build over ice (or shake for a \"fluffy\" texture).",
+      "garnish": "Orange wedge"
+    },
+    {
+      "name": "Americano",
+      "glassType": "highball",
+      "ingredients": [
+        {
+          "name": "Campari",
+          "amount": 45,
+          "unit": "ml",
+          "isBase": true,
+          "category": "Liqueur"
+        },
+        {
+          "name": "Sweet Vermouth",
+          "amount": 45,
+          "unit": "ml",
+          "isBase": true,
+          "category": "Vermouth"
+        },
+        {
+          "name": "Soda Water",
+          "amount": 1,
+          "unit": "top",
+          "isBase": false
+        }
+      ],
+      "instructions": "Build over ice.",
+      "garnish": "Orange slice"
+    },
+    {
+      "name": "Milano-Torino",
+      "glassType": "rocks",
+      "ingredients": [
+        {
+          "name": "Campari",
+          "amount": 45,
+          "unit": "ml",
+          "isBase": true,
+          "category": "Liqueur"
+        },
+        {
+          "name": "Sweet Vermouth",
+          "amount": 45,
+          "unit": "ml",
+          "isBase": true,
+          "category": "Vermouth"
+        }
+      ],
+      "instructions": "Stir with ice and strain over fresh ice.",
+      "garnish": "Orange peel"
+    },
+    {
+      "name": "Vermouth Cobbler",
+      "glassType": "hurricane",
+      "ingredients": [
+        {
+          "name": "Sweet Vermouth",
+          "amount": 60,
+          "unit": "ml",
+          "isBase": true,
+          "category": "Vermouth"
+        },
+        {
+          "name": "Simple Syrup",
+          "amount": 15,
+          "unit": "ml",
+          "isBase": false
+        }
+      ],
+      "instructions": "Build in a tall glass over crushed ice.",
+      "garnish": "Mixed citrus and berries, generously"
+    },
+    {
+      "name": "Bitter Orange Cooler",
+      "glassType": "highball",
+      "ingredients": [
+        {
+          "name": "Campari",
+          "amount": 45,
+          "unit": "ml",
+          "isBase": true,
+          "category": "Liqueur"
+        },
+        {
+          "name": "Orange Juice",
+          "amount": 90,
+          "unit": "ml",
+          "isBase": false
+        },
+        {
+          "name": "Lemon Juice",
+          "amount": 15,
+          "unit": "ml",
+          "isBase": false
+        },
+        {
+          "name": "Soda Water",
+          "amount": 1,
+          "unit": "top",
+          "isBase": false
+        },
+        {
+          "name": "Bitters",
+          "amount": 2,
+          "unit": "dash",
+          "isBase": true,
+          "category": "Bitters"
+        }
+      ],
+      "instructions": "Build over ice.",
+      "garnish": "Orange"
+    }
+  ]
+}
