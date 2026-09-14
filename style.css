@@ -524,9 +524,37 @@ body.modal-open { overflow: hidden; }
 
 .shelf-groups {
   margin-top: 14px;
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  display: flex;
+  align-items: flex-start;
   gap: 18px;
+}
+
+/* Every category except the longest one (see .shelf-groups-featured) —
+   a multi-column flow instead of a grid, so short categories pack
+   tightly one after another instead of every category in a "row"
+   getting stretched to match the tallest. Column count adapts to the
+   available width; break-inside:avoid on .shelf-group keeps one
+   category from being split across two columns. */
+.shelf-groups-main {
+  flex: 1;
+  min-width: 0;
+  columns: 190px;
+  column-gap: 18px;
+}
+
+/* Whichever category currently has the most items (computed in
+   renderShelfManager, not hardcoded — it's "Liqueur" today but won't
+   always be) gets its own fixed-width lane as a plain vertical list,
+   so it stays fully visible instead of being squeezed into a column
+   with the rest. */
+.shelf-groups-featured {
+  flex: 0 0 200px;
+  width: 200px;
+}
+
+.shelf-group {
+  break-inside: avoid;
+  margin-bottom: 18px;
 }
 
 .shelf-group h4 {
@@ -780,6 +808,13 @@ body.modal-open { overflow: hidden; }
      rail and add-form size to their own content width instead of filling
      the screen, which is what was actually forcing horizontal overflow. */
   .view.is-active { flex-direction: column; align-items: stretch; }
+
+  /* Not enough width for the featured category's own 200px lane beside
+     the multi-column area — stack it below the rest instead, as a
+     normal full-width list. */
+  .shelf-groups { flex-direction: column; }
+  .shelf-groups-featured { width: 100%; flex-basis: auto; }
+
   .category-rail {
     width: 100%;
     flex-direction: row;
