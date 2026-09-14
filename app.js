@@ -381,16 +381,18 @@ function cocktailMatchesCategory(cocktail, activeKey) {
   return getBaseIngredients(cocktail).some(i => categoryKey(i.category) === activeKey);
 }
 
-// Search matches against the cocktail's own name, its ingredient names
-// (base or not), and its garnish — e.g. "campari" surfaces the Negroni,
-// "mint" surfaces the Mojito via its garnish. Case-insensitive substring
-// match, no fuzzy matching.
+// Search matches against everything on the recipe: its name, ingredient
+// names (base or not), garnish, and notes — e.g. "campari" surfaces the
+// Negroni, "mint" surfaces the Mojito via its garnish, and a word from a
+// personal note surfaces whatever cocktail it's jotted on. Case-insensitive
+// substring match, no fuzzy matching.
 function cocktailMatchesSearch(cocktail, query) {
   const q = (query || '').trim().toLowerCase();
   if (!q) return true;
   if (cocktail.name.toLowerCase().includes(q)) return true;
   if (cocktail.ingredients.some(i => i.name.toLowerCase().includes(q))) return true;
-  return (cocktail.garnish || '').toLowerCase().includes(q);
+  if ((cocktail.garnish || '').toLowerCase().includes(q)) return true;
+  return (cocktail.notes || '').toLowerCase().includes(q);
 }
 
 // Favorited cocktails first (A-Z among themselves), then everything else
@@ -789,6 +791,47 @@ function renderBrowse() {
 /* ---------------------------------------------------------
    Rendering: Shelf view
 --------------------------------------------------------- */
+function renderShelfGroup(group) {
+  const groupEl = document.createElement('div');
+  groupEl.className = 'shelf-group';
+  const h4 = document.createElement('h4');
+  h4.style.setProperty('--dot-color', group.color);
+  h4.textContent = group.label;
+  groupEl.appendChild(h4);
+
+  for (const item of group.items) {
+    const row = document.createElement('label');
+    row.className = 'shelf-item';
+    const isOn = !!state.shelf[item.key];
+    row.innerHTML = `
+      <span class="switch">
+        <input type="checkbox" ${isOn ? 'checked' : ''} data-key="${item.key}" />
+        <span class="track"></span>
+        <span class="thumb"></span>
+      </span>
+      <span>${item.name}</span>
+    `;
+    row.querySelector('input').addEventListener('change', async (e) => {
+      const checked = e.target.checked;
+      state.shelf[item.key] = checked;
+      renderShelf();
+      renderBrowse();
+      try {
+        await upsertShelfRemote(item.key, checked);
+      } catch (err) {
+        console.error('Failed to save shelf toggle:', err);
+        state.shelf[item.key] = !checked;
+        renderShelfManager();
+        renderShelf();
+        renderBrowse();
+        alert("Couldn't save that — check your connection and try again.");
+      }
+    });
+    groupEl.appendChild(row);
+  }
+  return groupEl;
+}
+
 function renderShelfManager() {
   const container = document.getElementById('shelf-groups');
   container.innerHTML = '';
@@ -799,46 +842,30 @@ function renderShelfManager() {
     return;
   }
 
-  for (const group of groups) {
-    const groupEl = document.createElement('div');
-    groupEl.className = 'shelf-group';
-    const h4 = document.createElement('h4');
-    h4.style.setProperty('--dot-color', group.color);
-    h4.textContent = group.label;
-    groupEl.appendChild(h4);
-
-    for (const item of group.items) {
-      const row = document.createElement('label');
-      row.className = 'shelf-item';
-      const isOn = !!state.shelf[item.key];
-      row.innerHTML = `
-        <span class="switch">
-          <input type="checkbox" ${isOn ? 'checked' : ''} data-key="${item.key}" />
-          <span class="track"></span>
-          <span class="thumb"></span>
-        </span>
-        <span>${item.name}</span>
-      `;
-      row.querySelector('input').addEventListener('change', async (e) => {
-        const checked = e.target.checked;
-        state.shelf[item.key] = checked;
-        renderShelf();
-        renderBrowse();
-        try {
-          await upsertShelfRemote(item.key, checked);
-        } catch (err) {
-          console.error('Failed to save shelf toggle:', err);
-          state.shelf[item.key] = !checked;
-          renderShelfManager();
-          renderShelf();
-          renderBrowse();
-          alert("Couldn't save that — check your connection and try again.");
-        }
-      });
-      groupEl.appendChild(row);
-    }
-    container.appendChild(groupEl);
+  // CSS Grid stretches every category in a row to match the tallest one's
+  // height, which looks broken once one category (whichever has the most
+  // items — not hardcoded, since that'll likely change as the collection
+  // grows) is much longer than the rest. So that one gets its own
+  // fixed-width lane as a plain vertical list, and everything else flows
+  // through a multi-column region beside it instead.
+  let featuredIdx = 0;
+  for (let i = 1; i < groups.length; i++) {
+    if (groups[i].items.length > groups[featuredIdx].items.length) featuredIdx = i;
   }
+  const featured = groups[featuredIdx];
+  const rest = groups.filter((_, i) => i !== featuredIdx);
+
+  if (rest.length > 0) {
+    const mainCol = document.createElement('div');
+    mainCol.className = 'shelf-groups-main';
+    for (const group of rest) mainCol.appendChild(renderShelfGroup(group));
+    container.appendChild(mainCol);
+  }
+
+  const featuredCol = document.createElement('div');
+  featuredCol.className = 'shelf-groups-featured';
+  featuredCol.appendChild(renderShelfGroup(featured));
+  container.appendChild(featuredCol);
 }
 
 function renderShelf() {
