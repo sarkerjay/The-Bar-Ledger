@@ -230,7 +230,8 @@ main { padding: 0; }
   font-size: 0.85rem;
 }
 
-.unit-toggle {
+.unit-toggle,
+.made-toggle {
   display: flex;
   background: var(--ink-soft);
   border: 1px solid var(--ink-line);
@@ -238,7 +239,8 @@ main { padding: 0; }
   padding: 3px;
 }
 
-.unit-btn {
+.unit-btn,
+.made-toggle-btn {
   background: none;
   border: none;
   padding: 6px 14px;
@@ -249,7 +251,8 @@ main { padding: 0; }
   font-size: 0.85rem;
 }
 
-.unit-btn.is-active {
+.unit-btn.is-active,
+.made-toggle-btn.is-active {
   background: var(--gold);
   color: var(--ink);
   font-weight: 700;
@@ -380,6 +383,32 @@ main { padding: 0; }
 
 .card-availability.is-ready { color: var(--emerald); }
 .card-availability.is-missing { color: var(--burgundy); }
+
+.card-made-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  padding: 5px 12px;
+  margin: 0 0 10px;
+  border-radius: 999px;
+  border: 1px solid var(--paper-line);
+  background: transparent;
+  color: #5b4d2e;
+  cursor: pointer;
+}
+
+.card-made-btn:hover { border-color: var(--emerald); color: var(--emerald); }
+
+.card-made-btn.is-active {
+  background: var(--emerald);
+  border-color: var(--emerald);
+  color: var(--paper);
+}
+
+.card-made-btn.is-active:hover { background: var(--emerald); color: var(--paper); }
 
 .card-instructions summary {
   cursor: pointer;
@@ -861,9 +890,12 @@ body.modal-open { overflow: hidden; }
   }
   .ghost-btn { padding: 9px 12px; min-height: 40px; }
 
-  /* Toolbar: let the search box drop to its own full-width row instead
-     of squeezing in next to the unit toggle. */
+  /* Toolbar: let the made-filter toggle and the search box each drop to
+     their own full-width row instead of squeezing in next to the unit
+     toggle. */
   .toolbar { flex-wrap: wrap; row-gap: 10px; }
+  .made-toggle { order: 2; flex: 1 1 100%; }
+  .made-toggle-btn { flex: 1; text-align: center; }
   .search-wrap { order: 3; flex: 1 1 100%; max-width: none; margin-left: 0; }
 
   /* Ingredient editor: the 4-column grid gets too cramped for a phone —
@@ -919,4 +951,6 @@ body.modal-open { overflow: hidden; }
     padding: 9px 11px;
     top: -6px;
   }
+
+  .card-made-btn { padding: 8px 14px; }
 }

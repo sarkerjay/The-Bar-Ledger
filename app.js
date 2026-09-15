@@ -147,6 +147,7 @@ function rowToCocktail(row) {
     garnish: row.garnish || '',
     notes: row.notes || '',
     isFavorite: !!row.is_favorite,
+    isMade: !!row.is_made,
   };
 }
 function cocktailToRow(cocktail) {
@@ -160,6 +161,7 @@ function cocktailToRow(cocktail) {
     garnish: cocktail.garnish || '',
     notes: cocktail.notes || '',
     is_favorite: !!cocktail.isFavorite,
+    is_made: !!cocktail.isMade,
   };
 }
 
@@ -266,6 +268,8 @@ const state = {
   shelfCategory: 'all',
   browseSearch: '',
   shelfSearch: '',
+  browseMadeFilter: 'all', // 'all' | 'made' | 'unmade'
+  shelfMadeFilter: 'all',
   editingId: null,   // id of the cocktail currently being edited, or null
   editingReturnView: null, // view to return to once editing finishes ('browse'/'shelf')
 };
@@ -353,6 +357,10 @@ async function updateFavoriteRemote(id, isFavorite) {
   const { error } = await supabaseClient.from('cocktails').update({ is_favorite: isFavorite }).eq('id', id);
   if (error) throw error;
 }
+async function updateMadeRemote(id, isMade) {
+  const { error } = await supabaseClient.from('cocktails').update({ is_made: isMade }).eq('id', id);
+  if (error) throw error;
+}
 
 /* ---------------------------------------------------------
    Ingredient / cocktail helpers
@@ -393,6 +401,14 @@ function cocktailMatchesSearch(cocktail, query) {
   if (cocktail.ingredients.some(i => i.name.toLowerCase().includes(q))) return true;
   if ((cocktail.garnish || '').toLowerCase().includes(q)) return true;
   return (cocktail.notes || '').toLowerCase().includes(q);
+}
+
+// The made/unmade toolbar filter — combined with the category rail and
+// search via AND, same pattern as cocktailMatchesCategory/Search.
+function cocktailMatchesMadeFilter(cocktail, filter) {
+  if (filter === 'made') return !!cocktail.isMade;
+  if (filter === 'unmade') return !cocktail.isMade;
+  return true; // 'all'
 }
 
 // Favorited cocktails first (A-Z among themselves), then everything else
@@ -635,6 +651,14 @@ function renderCard(cocktail, unitMode, opts) {
     card.appendChild(note);
   }
 
+  const madeBtn = document.createElement('button');
+  madeBtn.type = 'button';
+  madeBtn.className = 'card-made-btn' + (cocktail.isMade ? ' is-active' : '');
+  madeBtn.setAttribute('aria-pressed', String(!!cocktail.isMade));
+  madeBtn.innerHTML = cocktail.isMade ? '&#10003; Made' : 'Mark as made';
+  madeBtn.addEventListener('click', () => toggleMade(cocktail));
+  card.appendChild(madeBtn);
+
   const details = document.createElement('details');
   details.className = 'card-instructions';
   if (expanded) details.open = true;
@@ -684,7 +708,7 @@ function renderCard(cocktail, unitMode, opts) {
 
   if (!inModal) {
     card.addEventListener('click', (e) => {
-      if (e.target.closest('.card-actions') || e.target.closest('.card-favorite-btn')) return;
+      if (e.target.closest('.card-actions') || e.target.closest('.card-favorite-btn') || e.target.closest('.card-made-btn')) return;
       openCocktailModal(cocktail, unitMode, { showAvailability });
     });
   }
@@ -707,6 +731,28 @@ async function toggleFavorite(cocktail) {
   } catch (err) {
     console.error('Failed to save favorite:', err);
     cocktail.isFavorite = !newVal;
+    renderBrowse();
+    renderShelf();
+    refreshModalIfShowing(cocktail.id);
+    alert("Couldn't save that — check your connection and try again.");
+  }
+}
+
+/* ---------------------------------------------------------
+   Made/unmade tracker — persisted to Supabase, same optimistic-update
+   pattern as toggleFavorite.
+--------------------------------------------------------- */
+async function toggleMade(cocktail) {
+  const newVal = !cocktail.isMade;
+  cocktail.isMade = newVal;
+  renderBrowse();
+  renderShelf();
+  refreshModalIfShowing(cocktail.id);
+  try {
+    await updateMadeRemote(cocktail.id, newVal);
+  } catch (err) {
+    console.error('Failed to save made status:', err);
+    cocktail.isMade = !newVal;
     renderBrowse();
     renderShelf();
     refreshModalIfShowing(cocktail.id);
@@ -768,6 +814,7 @@ function renderBrowse() {
     renderBrowse();
   });
   syncUnitToggle('unit-toggle-browse');
+  syncMadeFilterToggle('made-filter-browse', state.browseMadeFilter);
 
   const grid = document.getElementById('browse-grid');
   const empty = document.getElementById('browse-empty');
@@ -775,7 +822,8 @@ function renderBrowse() {
 
   const matches = state.cocktails
     .filter(c => cocktailMatchesCategory(c, state.browseCategory))
-    .filter(c => cocktailMatchesSearch(c, state.browseSearch));
+    .filter(c => cocktailMatchesSearch(c, state.browseSearch))
+    .filter(c => cocktailMatchesMadeFilter(c, state.browseMadeFilter));
   matches.sort(compareCocktails);
 
   if (matches.length === 0) {
@@ -874,6 +922,7 @@ function renderShelf() {
     renderShelf();
   });
   syncUnitToggle('unit-toggle-shelf');
+  syncMadeFilterToggle('made-filter-shelf', state.shelfMadeFilter);
 
   const grid = document.getElementById('shelf-grid');
   const empty = document.getElementById('shelf-empty');
@@ -882,7 +931,8 @@ function renderShelf() {
   const makeable = state.cocktails.filter(isMakeable);
   const matches = makeable
     .filter(c => cocktailMatchesCategory(c, state.shelfCategory))
-    .filter(c => cocktailMatchesSearch(c, state.shelfSearch));
+    .filter(c => cocktailMatchesSearch(c, state.shelfSearch))
+    .filter(c => cocktailMatchesMadeFilter(c, state.shelfMadeFilter));
   matches.sort(compareCocktails);
 
   if (matches.length === 0) {
@@ -915,6 +965,32 @@ function wireUnitToggles() {
       renderBrowse();
       renderShelf();
     });
+  });
+}
+
+/* ---------------------------------------------------------
+   Made/unmade filter toggle — same segmented-toggle look as the unit
+   toggle, but Browse and My Shelf each keep their own selection.
+--------------------------------------------------------- */
+function syncMadeFilterToggle(containerId, value) {
+  const container = document.getElementById(containerId);
+  container.querySelectorAll('.made-toggle-btn').forEach(btn => {
+    btn.classList.toggle('is-active', btn.dataset.made === value);
+  });
+}
+
+function wireMadeFilterToggles() {
+  document.getElementById('made-filter-browse').addEventListener('click', (e) => {
+    const btn = e.target.closest('.made-toggle-btn');
+    if (!btn) return;
+    state.browseMadeFilter = btn.dataset.made;
+    renderBrowse();
+  });
+  document.getElementById('made-filter-shelf').addEventListener('click', (e) => {
+    const btn = e.target.closest('.made-toggle-btn');
+    if (!btn) return;
+    state.shelfMadeFilter = btn.dataset.made;
+    renderShelf();
   });
 }
 
@@ -1175,7 +1251,11 @@ function wireAddForm() {
 
     if (state.editingId) {
       const existing = state.cocktails.find(c => c.id === state.editingId);
-      const cocktail = { id: state.editingId, ...cocktailData, isFavorite: existing ? existing.isFavorite : false };
+      const cocktail = {
+        id: state.editingId, ...cocktailData,
+        isFavorite: existing ? existing.isFavorite : false,
+        isMade: existing ? existing.isMade : false,
+      };
       try {
         await updateCocktailRemote(cocktail);
       } catch (err) {
@@ -1331,6 +1411,7 @@ function wireExportImport() {
 async function init() {
   wireNav();
   wireUnitToggles();
+  wireMadeFilterToggles();
   wireSearchInputs();
   wireModal();
   populateGlassSelect();
