@@ -602,6 +602,17 @@ body.modal-open { overflow: hidden; }
   border-radius: var(--radius);
 }
 
+/* The card-tab pokes 10px above the card's own padding box, same as on
+   the grid — but the modal card's top border is thicker (5px vs. 3px),
+   which eats 2px further into that offset, and .modal-dialog's
+   overflow-y:auto clips anything outside its own box, including that
+   negative overhang. Padding here (not on .modal-dialog itself, which
+   would also shift the star/X — those are positioned relative to the
+   dialog, not this slot) gives the tab room to poke fully into view. */
+#modal-card-slot {
+  padding-top: 10px;
+}
+
 .modal-dialog .cocktail-card-modal {
   padding: 34px 30px 26px;
   border-top-width: 5px;
@@ -666,13 +677,15 @@ body.modal-open { overflow: hidden; }
    z-index bury it. Same light fill/border as the close button now, so
    the two read as a matched pair without either looking out of place
    against the parchment card.
-   The top offset is 5px less than the close button's: this button's
-   positioning context is the card itself, whose gold top border (5px
-   in the modal) sits inside that offset, while the close button's
-   positioning context is the dialog, which has no such border — equal
-   `top` values on both would otherwise land 5px apart. */
+   The top offset accounts for two things relative to the close button's
+   (whose positioning context is the dialog itself): this button's own
+   positioning context is the card, whose 5px gold top border (vs. 3px
+   on the grid) eats 5px into it, and #modal-card-slot's 10px top
+   padding (added so the card-tab isn't clipped by the dialog's
+   overflow) pushes the card itself 10px further down within the
+   dialog. Net: 8px - 5px - 10px = -7px. */
 .modal-dialog .card-favorite-btn {
-  top: 3px;
+  top: -7px;
   right: 54px;
   width: 34px;
   height: 34px;
@@ -1118,7 +1131,7 @@ body.modal-open { overflow: hidden; }
     height: 40px;
   }
   .modal-dialog .card-favorite-btn {
-    top: 7px;
+    top: -3px;
     right: 60px;
     width: 40px;
     height: 40px;
