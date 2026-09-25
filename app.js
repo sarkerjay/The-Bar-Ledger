@@ -1359,6 +1359,22 @@ function renderShelfItemEditPanel(item) {
   return panel;
 }
 
+// The shelf manager's column count is driven entirely from here (not
+// from a CSS media query) because the JS side pre-sorts categories into
+// specific column buckets — if CSS were free to show a different number
+// of columns than JS bucketed for, the grid would auto-wrap those
+// buckets in a way that could knock the featured category out of the
+// rightmost position. 780px matches the app's existing mobile
+// breakpoint (nav, forms, etc. all collapse there too); 1100px is a
+// tablet-ish middle tier so a merely-narrow desktop window doesn't
+// squeeze 3 columns down to unreadable widths.
+function maxShelfColumnsForViewport() {
+  const w = window.innerWidth;
+  if (w <= 780) return 1;
+  if (w <= 1100) return 2;
+  return 3;
+}
+
 function renderShelfManager() {
   const container = document.getElementById('shelf-groups');
   container.innerHTML = '';
@@ -1371,7 +1387,7 @@ function renderShelfManager() {
 
   // Whichever category has the most items (not hardcoded — it's
   // "Liqueur" today but won't always be) is pinned to the rightmost of
-  // up to 4 equal-width columns; everything else is greedily balanced
+  // up to 3 equal-width columns; everything else is greedily balanced
   // across the remaining columns (largest-first, always into whichever
   // column currently has the fewest items) so no column ends up
   // dramatically taller than the rest.
@@ -1382,7 +1398,22 @@ function renderShelfManager() {
   const featured = groups[featuredIdx];
   const rest = groups.filter((_, i) => i !== featuredIdx);
 
-  const columnCount = Math.min(4, groups.length);
+  const columnCount = Math.min(maxShelfColumnsForViewport(), groups.length);
+  container.style.setProperty('--shelf-column-count', columnCount);
+
+  // Only one column fits — there's no separate "rightmost" column to pin
+  // the featured category into, so everything just stacks together in
+  // reading order, with the featured category still last.
+  if (columnCount === 1) {
+    const colEl = document.createElement('div');
+    colEl.className = 'shelf-column';
+    const sortedRest = [...rest].sort((a, b) => a.label.localeCompare(b.label));
+    for (const group of sortedRest) colEl.appendChild(renderShelfGroup(group));
+    colEl.appendChild(renderShelfGroup(featured));
+    container.appendChild(colEl);
+    return;
+  }
+
   const mainColumnCount = columnCount - 1;
   const mainColumns = Array.from({ length: mainColumnCount }, () => ({ itemCount: 0, groups: [] }));
   const sortedRest = [...rest].sort((a, b) => b.items.length - a.items.length);
@@ -1394,8 +1425,6 @@ function renderShelfManager() {
     shortest.groups.push(group);
     shortest.itemCount += group.items.length;
   }
-
-  container.style.setProperty('--shelf-column-count', columnCount);
 
   for (const col of mainColumns) {
     const colEl = document.createElement('div');
@@ -2030,5 +2059,18 @@ async function init() {
   renderShelfManager();
   renderShelf();
 }
+
+// Re-bucket the shelf manager's columns when a resize crosses one of
+// maxShelfColumnsForViewport's breakpoints — debounced since 'resize'
+// fires continuously while dragging a window edge.
+let shelfResizeTimer = null;
+window.addEventListener('resize', () => {
+  clearTimeout(shelfResizeTimer);
+  shelfResizeTimer = setTimeout(() => {
+    // Don't blow away an in-progress, unsaved rename just because the
+    // window resized — leave the layout as-is until it's done.
+    if (state.editingShelfItemKey === null) renderShelfManager();
+  }, 150);
+});
 
 document.addEventListener('DOMContentLoaded', init);
