@@ -910,10 +910,29 @@ body.modal-open { overflow: hidden; }
   /* minmax(0, 1fr), not a bare 1fr — a bare 1fr track won't shrink below
      its content's min-content size, which forces the whole form wider
      than the viewport on narrow phones. */
-  grid-template-columns: 70px 100px minmax(0, 1fr) auto;
+  grid-template-columns: 24px 70px 100px minmax(0, 1fr) auto;
   gap: 8px;
   align-items: center;
   margin-bottom: 8px;
+}
+
+.drag-handle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: #8a7440;
+  font-size: 1.1rem;
+  line-height: 1;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.drag-handle:active { cursor: grabbing; }
+
+.ingredient-row-wrapper.is-dragging {
+  opacity: 0.5;
 }
 
 .ingredient-row input[type="number"],
@@ -1141,10 +1160,11 @@ body.modal-open { overflow: hidden; }
      stack amount/unit/remove on one line and let the name field take
      its own full-width row underneath. */
   .ingredient-row {
-    grid-template-columns: 70px minmax(0, 1fr) auto;
-    grid-template-areas: "amount unit remove" "name name name";
+    grid-template-columns: 28px 70px minmax(0, 1fr) auto;
+    grid-template-areas: "handle amount unit remove" "handle name name name";
     row-gap: 6px;
   }
+  .ingredient-row .drag-handle { grid-area: handle; font-size: 1.3rem; }
   .ingredient-row .ing-amount { grid-area: amount; }
   .ingredient-row .ing-unit { grid-area: unit; }
   .ingredient-row .ing-name { grid-area: name; }
