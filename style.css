@@ -616,12 +616,32 @@ body.modal-open { overflow: hidden; }
   margin: 10px 0 4px;
 }
 .modal-name-row .card-name { margin: 0; }
-.modal-unit-toggle { flex-shrink: 0; }
+
+/* Smaller than the page-toolbar version, and pulled right by a negative
+   margin — past the card's own right padding (30px) and its 1px right
+   border, up to the close button's 8px inset from the dialog edge — so
+   this toggle's rightmost pixel lines up with the X's rightmost pixel. */
+.modal-unit-toggle {
+  flex-shrink: 0;
+  margin-right: -23px;
+  padding: 2px;
+  background: var(--paper-dim);
+  border-color: var(--paper-line);
+}
+.modal-unit-toggle .unit-btn {
+  padding: 4px 9px;
+  font-size: 0.78rem;
+  color: #5b4d2e;
+}
+.modal-unit-toggle .unit-btn.is-active { color: var(--ink); }
 
 .modal-dialog .card-name { font-size: 1.7rem; }
 .modal-dialog .card-ingredients { font-size: 1.02rem; }
 .modal-dialog .card-instructions p { font-size: 1rem; }
 
+/* The close button and the star share the same light, parchment-card
+   look (paper fill, soft border) rather than a dark chip — the dark
+   version read as jarring against the card's own light background. */
 .modal-close-btn {
   position: absolute;
   top: 8px;
@@ -632,9 +652,9 @@ body.modal-open { overflow: hidden; }
   align-items: center;
   justify-content: center;
   border-radius: 50%;
-  border: 1px solid var(--ink-line);
-  background: var(--ink-soft);
-  color: var(--paper);
+  border: 1px solid var(--paper-line);
+  background: var(--paper);
+  color: var(--ink);
   font-size: 1.3rem;
   line-height: 1;
   cursor: pointer;
@@ -643,9 +663,9 @@ body.modal-open { overflow: hidden; }
 
 /* In the modal, the star shares the same corner as the close button —
    sit it just to the left of the X instead of letting the X's higher
-   z-index bury it. Styled to match the close button exactly (same dark
-   fill, not the paper-colored ring it uses on the grid card) so the two
-   read as one matched pair of icon buttons, not two different sizes.
+   z-index bury it. Same light fill/border as the close button now, so
+   the two read as a matched pair without either looking out of place
+   against the parchment card.
    The top offset is 5px less than the close button's: this button's
    positioning context is the card itself, whose gold top border (5px
    in the modal) sits inside that offset, while the close button's
@@ -661,12 +681,12 @@ body.modal-open { overflow: hidden; }
   justify-content: center;
   padding: 0;
   font-size: 1.3rem;
-  border: 1px solid var(--ink-line);
-  background: var(--ink-soft);
+  border: 1px solid var(--paper-line);
+  background: var(--paper);
   z-index: 1;
 }
 
-.modal-close-btn:hover { border-color: var(--gold); color: var(--gold-bright); }
+.modal-close-btn:hover { border-color: var(--gold); color: var(--gold); }
 
 /* ---------------------------------------------------------
    Shelf manager
@@ -1103,6 +1123,11 @@ body.modal-open { overflow: hidden; }
     width: 40px;
     height: 40px;
   }
+
+  /* Card's own right padding is 18px here (vs. 30px on desktop) and the
+     close button sits 12px in (vs. 8px) — same alignment trick, different
+     numbers: -(18 - 12) = -6px. */
+  .modal-unit-toggle { margin-right: -6px; }
 
   .card-favorite-btn {
     padding: 9px 11px;
