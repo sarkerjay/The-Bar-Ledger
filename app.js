@@ -1379,6 +1379,7 @@ function createIngredientRow(prefill) {
   wrapper.className = 'ingredient-row-wrapper';
   wrapper.innerHTML = `
     <div class="ingredient-row">
+      <span class="drag-handle" title="Drag to reorder" aria-hidden="true">&#x283F;</span>
       <input type="number" class="ing-amount" step="0.125" min="0" placeholder="2" value="${data.amount !== '' && data.amount !== undefined ? data.amount : ''}" required />
       <select class="ing-unit">${unitOptionsHtml(data.unit || 'oz')}</select>
       <input type="text" class="ing-name" placeholder="Ingredient name" value="${data.name ? data.name.replace(/"/g, '&quot;') : ''}" required />
@@ -1414,7 +1415,54 @@ function createIngredientRow(prefill) {
     const rows = document.querySelectorAll('#ingredient-rows .ingredient-row-wrapper');
     if (rows.length > 1) wrapper.remove();
   });
+  wireIngredientRowDrag(wrapper);
   return wrapper;
+}
+
+// Drag-to-reorder for ingredient rows, via Pointer Events rather than the
+// HTML5 Drag and Drop API — that API has no real touch support, and this
+// needs to work on a phone. Each .ingredient-row-wrapper (main row +
+// category + any alternatives, all nested inside it) is the unit that
+// moves, so alternatives always travel bunched with their own ingredient.
+//
+// Move/up listeners live on the document for the drag's duration (classic
+// mousedown/mousemove/mouseup-drag shape) rather than using
+// setPointerCapture on the handle — capture didn't reliably keep routing
+// events to the handle once the pointer moved over a different row.
+let ingredientDragActive = false;
+
+function wireIngredientRowDrag(wrapper) {
+  const handle = wrapper.querySelector('.drag-handle');
+
+  handle.addEventListener('pointerdown', (e) => {
+    if (ingredientDragActive) return; // one drag at a time
+    ingredientDragActive = true;
+    e.preventDefault();
+    wrapper.classList.add('is-dragging');
+
+    const onMove = (moveEvent) => {
+      const container = document.getElementById('ingredient-rows');
+      const siblings = Array.from(container.querySelectorAll('.ingredient-row-wrapper')).filter(el => el !== wrapper);
+      for (const sib of siblings) {
+        const rect = sib.getBoundingClientRect();
+        if (moveEvent.clientY >= rect.top && moveEvent.clientY <= rect.bottom) {
+          const before = moveEvent.clientY < rect.top + rect.height / 2;
+          container.insertBefore(wrapper, before ? sib : sib.nextSibling);
+          break;
+        }
+      }
+    };
+    const onUp = () => {
+      ingredientDragActive = false;
+      wrapper.classList.remove('is-dragging');
+      document.removeEventListener('pointermove', onMove);
+      document.removeEventListener('pointerup', onUp);
+      document.removeEventListener('pointercancel', onUp);
+    };
+    document.addEventListener('pointermove', onMove);
+    document.addEventListener('pointerup', onUp);
+    document.addEventListener('pointercancel', onUp);
+  });
 }
 
 function resetIngredientRows() {
