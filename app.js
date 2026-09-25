@@ -1387,10 +1387,12 @@ function renderShelfManager() {
 
   // Whichever category has the most items (not hardcoded — it's
   // "Liqueur" today but won't always be) is pinned to the rightmost of
-  // up to 3 equal-width columns; everything else is greedily balanced
-  // across the remaining columns (largest-first, always into whichever
-  // column currently has the fewest items) so no column ends up
-  // dramatically taller than the rest.
+  // up to 3 equal-width columns. Everything else stays in its normal
+  // alphabetical order (collectShelfIngredients already sorts it) and is
+  // greedily balanced across the remaining columns — each category, in
+  // alphabetical order, dropped into whichever column currently has the
+  // fewest items — so no column ends up dramatically taller than the
+  // rest, and a column's own categories still read alphabetically.
   let featuredIdx = 0;
   for (let i = 1; i < groups.length; i++) {
     if (groups[i].items.length > groups[featuredIdx].items.length) featuredIdx = i;
@@ -1407,8 +1409,7 @@ function renderShelfManager() {
   if (columnCount === 1) {
     const colEl = document.createElement('div');
     colEl.className = 'shelf-column';
-    const sortedRest = [...rest].sort((a, b) => a.label.localeCompare(b.label));
-    for (const group of sortedRest) colEl.appendChild(renderShelfGroup(group));
+    for (const group of rest) colEl.appendChild(renderShelfGroup(group));
     colEl.appendChild(renderShelfGroup(featured));
     container.appendChild(colEl);
     return;
@@ -1416,8 +1417,7 @@ function renderShelfManager() {
 
   const mainColumnCount = columnCount - 1;
   const mainColumns = Array.from({ length: mainColumnCount }, () => ({ itemCount: 0, groups: [] }));
-  const sortedRest = [...rest].sort((a, b) => b.items.length - a.items.length);
-  for (const group of sortedRest) {
+  for (const group of rest) {
     let shortest = mainColumns[0];
     for (const col of mainColumns) {
       if (col.itemCount < shortest.itemCount) shortest = col;
