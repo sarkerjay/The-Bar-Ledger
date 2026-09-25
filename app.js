@@ -402,8 +402,32 @@ function getBaseIngredients(cocktail) {
   return cocktail.ingredients.filter(i => i.isBase);
 }
 
+// An ingredient "slot" can list alternatives it'll equally accept (e.g. a
+// Moscow Mule's Vodka slot might also accept Vanilla Vodka) — old
+// ingredients simply have none. These two helpers are the only place that
+// needs to know that; everything else works off their output.
+function ingredientNames(ingredient) {
+  const alts = (ingredient.alternatives || []).map(a => a.name).filter(Boolean);
+  return [ingredient.name, ...alts];
+}
+function ingredientVariants(ingredient) {
+  const alts = (ingredient.alternatives || []);
+  return [{ name: ingredient.name, category: ingredient.category }, ...alts];
+}
+
+// Display text for a slot's name(s) — e.g. "Vodka (or Vanilla Vodka)".
+// Ratio-mode's own ratio line deliberately skips this (primary name only,
+// so "8 Vodka : 3 Lime" stays compact) — everywhere else uses it.
+function ingredientDisplayName(ingredient) {
+  const alts = (ingredient.alternatives || []).map(a => a.name).filter(Boolean);
+  if (alts.length === 0) return ingredient.name;
+  return `${ingredient.name} (or ${alts.join(', ')})`;
+}
+
+// A slot counts as stocked if the primary name OR any alternative is on
+// the shelf — you only need one of them.
 function missingBaseIngredients(cocktail) {
-  return getBaseIngredients(cocktail).filter(i => !state.shelf[normalize(i.name)]);
+  return getBaseIngredients(cocktail).filter(i => !ingredientNames(i).some(n => state.shelf[normalize(n)]));
 }
 
 function isMakeable(cocktail) {
@@ -419,7 +443,9 @@ function categoryKey(label) {
 function cocktailMatchesCategory(cocktail, activeKey) {
   if (activeKey === 'all') return true;
   if (activeKey === FAVORITES_KEY) return !!cocktail.isFavorite;
-  return getBaseIngredients(cocktail).some(i => categoryKey(i.category) === activeKey);
+  return getBaseIngredients(cocktail).some(i =>
+    ingredientVariants(i).some(v => categoryKey(v.category) === activeKey)
+  );
 }
 
 // Search matches against everything on the recipe: its name, ingredient
@@ -431,7 +457,7 @@ function cocktailMatchesSearch(cocktail, query) {
   const q = (query || '').trim().toLowerCase();
   if (!q) return true;
   if (cocktail.name.toLowerCase().includes(q)) return true;
-  if (cocktail.ingredients.some(i => i.name.toLowerCase().includes(q))) return true;
+  if (cocktail.ingredients.some(i => ingredientNames(i).some(n => n.toLowerCase().includes(q)))) return true;
   if ((cocktail.garnish || '').toLowerCase().includes(q)) return true;
   return (cocktail.notes || '').toLowerCase().includes(q);
 }
@@ -461,9 +487,11 @@ function collectCategories() {
   const byKey = new Map();
   for (const c of state.cocktails) {
     for (const ing of getBaseIngredients(c)) {
-      const label = (ing.category || 'Other').trim();
-      const key = categoryKey(label);
-      if (!byKey.has(key)) byKey.set(key, label);
+      for (const v of ingredientVariants(ing)) {
+        const label = (v.category || 'Other').trim();
+        const key = categoryKey(label);
+        if (!byKey.has(key)) byKey.set(key, label);
+      }
     }
   }
   return Array.from(byKey.entries())
@@ -471,20 +499,25 @@ function collectCategories() {
     .sort((a, b) => a.label.localeCompare(b.label));
 }
 
-// Unique base-ingredient names across the whole collection, grouped by category.
+// Unique base-ingredient names across the whole collection (each
+// alternative counts as its own name/category, same as a primary would),
+// grouped by category.
 function collectShelfIngredients() {
   const groups = new Map(); // categoryKey -> { label, color, items: [{name,key}] }
   const seenNames = new Set();
   for (const c of state.cocktails) {
     for (const ing of getBaseIngredients(c)) {
-      const nameKey = normalize(ing.name);
-      const catLabel = (ing.category || 'Other').trim();
-      const catKey = categoryKey(catLabel);
-      const dedupeKey = catKey + '::' + nameKey;
-      if (seenNames.has(dedupeKey)) continue;
-      seenNames.add(dedupeKey);
-      if (!groups.has(catKey)) groups.set(catKey, { label: catLabel, color: categoryColorFor(catLabel), items: [] });
-      groups.get(catKey).items.push({ name: ing.name.trim(), key: nameKey });
+      for (const v of ingredientVariants(ing)) {
+        if (!v.name) continue;
+        const nameKey = normalize(v.name);
+        const catLabel = (v.category || 'Other').trim();
+        const catKey = categoryKey(catLabel);
+        const dedupeKey = catKey + '::' + nameKey;
+        if (seenNames.has(dedupeKey)) continue;
+        seenNames.add(dedupeKey);
+        if (!groups.has(catKey)) groups.set(catKey, { label: catLabel, color: categoryColorFor(catLabel), items: [] });
+        groups.get(catKey).items.push({ name: v.name.trim(), key: nameKey });
+      }
     }
   }
   const list = Array.from(groups.values());
@@ -512,16 +545,29 @@ async function saveCategoryEdit(oldKey, oldLabel, newLabelRaw, newColor) {
     }
   }
 
+  // A slot "has" a category if its primary name or any of its alternatives
+  // is tagged with it — renaming touches whichever of those match, leaving
+  // the rest of that same slot alone.
+  const slotHasCategoryKey = (i) => i.isBase && ingredientVariants(i).some(v => categoryKey(v.category) === oldKey);
+
   const affected = nameChanged
-    ? state.cocktails.filter(c => c.ingredients.some(i => i.isBase && categoryKey(i.category) === oldKey))
+    ? state.cocktails.filter(c => c.ingredients.some(slotHasCategoryKey))
     : [];
 
   if (affected.length > 0) {
     const updated = affected.map(c => ({
       ...c,
-      ingredients: c.ingredients.map(i =>
-        i.isBase && categoryKey(i.category) === oldKey ? { ...i, category: newLabel } : i
-      ),
+      ingredients: c.ingredients.map(i => {
+        if (!slotHasCategoryKey(i)) return i;
+        const newIng = { ...i };
+        if (categoryKey(i.category) === oldKey) newIng.category = newLabel;
+        if (i.alternatives && i.alternatives.length) {
+          newIng.alternatives = i.alternatives.map(a =>
+            categoryKey(a.category) === oldKey ? { ...a, category: newLabel } : a
+          );
+        }
+        return newIng;
+      }),
     }));
     await upsertCocktailsRemote(updated);
     const byId = new Map(state.cocktails.map(c => [c.id, c]));
@@ -602,15 +648,16 @@ function formatVolumeLine(ingredient, unitMode) {
     amt = fromMl(ml, unitMode);
   }
   const display = unitMode === 'oz' ? formatOz(amt) : formatMl(amt);
-  return `${display} ${unitMode} ${ingredient.name}`;
+  return `${display} ${unitMode} ${ingredientDisplayName(ingredient)}`;
 }
 
 function formatNonVolumeLine(ingredient) {
   const u = UNITS[ingredient.unit] || { label: ingredient.unit };
-  if (u.topUp) return `Top with ${ingredient.name}`;
-  if (u.freeform) return `${formatGeneric(ingredient.amount)} ${ingredient.name}`;
+  const name = ingredientDisplayName(ingredient);
+  if (u.topUp) return `Top with ${name}`;
+  if (u.freeform) return `${formatGeneric(ingredient.amount)} ${name}`;
   const label = ingredient.amount === 1 ? u.label : (u.pluralLabel || u.label + 's');
-  return `${formatGeneric(ingredient.amount)} ${label} ${ingredient.name}`;
+  return `${formatGeneric(ingredient.amount)} ${label} ${name}`;
 }
 
 function gcd(a, b) { return b ? gcd(b, a % b) : a; }
@@ -880,7 +927,7 @@ function renderCard(cocktail, unitMode, opts) {
       note.textContent = 'On the shelf';
     } else {
       note.className = 'card-availability is-missing';
-      note.textContent = 'Missing: ' + missing.map(i => i.name).join(', ');
+      note.textContent = 'Missing: ' + missing.map(i => ingredientDisplayName(i)).join(', ');
     }
     card.appendChild(note);
   }
@@ -1310,8 +1357,24 @@ function wireGlassField() {
   document.getElementById('field-glass-type').addEventListener('change', updateGlassPreview);
 }
 
+// One alternative name a slot will also accept (e.g. "Vanilla Vodka" next
+// to a primary "Vodka") — only ever shown/read while that slot is marked
+// "on my shelf", same as the primary's own category field.
+function createAlternativeRow(prefill) {
+  const data = prefill || { name: '', category: '' };
+  const row = document.createElement('div');
+  row.className = 'ingredient-alt-row';
+  row.innerHTML = `
+    <input type="text" class="ing-alt-name" placeholder="Alternative name (e.g. Vanilla Vodka)" value="${data.name ? data.name.replace(/"/g, '&quot;') : ''}" />
+    <input type="text" class="ing-alt-category" list="category-datalist" placeholder="Category" value="${data.category ? data.category.replace(/"/g, '&quot;') : ''}" />
+    <button type="button" class="alt-remove" title="Remove alternative">&times;</button>
+  `;
+  row.querySelector('.alt-remove').addEventListener('click', () => row.remove());
+  return row;
+}
+
 function createIngredientRow(prefill) {
-  const data = prefill || { amount: '', unit: 'oz', name: '', isBase: false, category: '' };
+  const data = prefill || { amount: '', unit: 'oz', name: '', isBase: false, category: '', alternatives: [] };
   const wrapper = document.createElement('div');
   wrapper.className = 'ingredient-row-wrapper';
   wrapper.innerHTML = `
@@ -1325,12 +1388,27 @@ function createIngredientRow(prefill) {
       <label><input type="checkbox" class="ing-isbase" ${data.isBase ? 'checked' : ''} /> on my shelf (spirit/liqueur/vermouth/bitters)</label>
       <input type="text" class="ing-category" list="category-datalist" placeholder="e.g. Gin" value="${data.category ? data.category.replace(/"/g, '&quot;') : ''}" ${data.isBase ? '' : 'disabled'} />
     </div>
+    <div class="ingredient-alternatives" ${data.isBase ? '' : 'hidden'}>
+      <div class="ingredient-alt-rows"></div>
+      <button type="button" class="ghost-btn add-alt-btn">+ Add alternative</button>
+    </div>
   `;
   const isBaseCheckbox = wrapper.querySelector('.ing-isbase');
   const categoryInput = wrapper.querySelector('.ing-category');
+  const altsContainer = wrapper.querySelector('.ingredient-alternatives');
+  const altRowsContainer = wrapper.querySelector('.ingredient-alt-rows');
+
+  for (const alt of (data.alternatives || [])) {
+    altRowsContainer.appendChild(createAlternativeRow(alt));
+  }
+
   isBaseCheckbox.addEventListener('change', () => {
     categoryInput.disabled = !isBaseCheckbox.checked;
+    altsContainer.hidden = !isBaseCheckbox.checked;
     if (isBaseCheckbox.checked) categoryInput.focus();
+  });
+  wrapper.querySelector('.add-alt-btn').addEventListener('click', () => {
+    altRowsContainer.appendChild(createAlternativeRow());
   });
   wrapper.querySelector('.row-remove').addEventListener('click', () => {
     const rows = document.querySelectorAll('#ingredient-rows .ingredient-row-wrapper');
@@ -1392,6 +1470,7 @@ function startEdit(cocktail) {
   for (const ing of ingredients) {
     rowsContainer.appendChild(createIngredientRow({
       amount: ing.amount, unit: ing.unit, name: ing.name, isBase: ing.isBase, category: ing.category,
+      alternatives: ing.alternatives || [],
     }));
   }
 
@@ -1467,7 +1546,18 @@ function wireAddForm() {
       if (!ingName || amountRaw === '') return;
       if (isBase && !category) missingCategory = true;
       const ingredient = { name: ingName, amount: parseFloat(amountRaw), unit, isBase };
-      if (isBase) ingredient.category = category;
+      if (isBase) {
+        ingredient.category = category;
+        const alternatives = [];
+        row.querySelectorAll('.ingredient-alt-row').forEach(altRow => {
+          const altName = altRow.querySelector('.ing-alt-name').value.trim();
+          const altCategory = altRow.querySelector('.ing-alt-category').value.trim();
+          if (!altName) return; // an empty alternative row is just unused, not an error
+          if (!altCategory) missingCategory = true;
+          alternatives.push({ name: altName, category: altCategory });
+        });
+        if (alternatives.length > 0) ingredient.alternatives = alternatives;
+      }
       ingredients.push(ingredient);
     });
 
@@ -1478,7 +1568,7 @@ function wireAddForm() {
     }
     if (missingCategory) {
       statusEl.style.color = '#8B3A2B';
-      statusEl.textContent = 'Give each "on my shelf" ingredient a category (e.g. Gin, Bitters).';
+      statusEl.textContent = 'Give each "on my shelf" ingredient (and any alternatives) a category (e.g. Gin, Bitters).';
       return;
     }
 
