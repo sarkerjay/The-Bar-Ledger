@@ -773,6 +773,29 @@ body.modal-open { overflow: hidden; }
   font-size: 0.9rem;
 }
 
+.shelf-item-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.shelf-item .edit-pencil-btn {
+  color: var(--paper-dim);
+}
+
+.shelf-item:hover .edit-pencil-btn,
+.shelf-item:focus-within .edit-pencil-btn {
+  opacity: 1;
+}
+
+/* The shelf columns are narrower than the category rail, so give the
+   reused rename panel a touch less padding here to avoid crowding. */
+.shelf-item-edit-panel {
+  padding: 8px;
+}
+
 .switch {
   position: relative;
   width: 34px;

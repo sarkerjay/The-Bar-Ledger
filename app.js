@@ -285,6 +285,7 @@ const state = {
   categoryColors: {}, // category key -> manually-chosen hex color, from Supabase
   editingCategoryKey: null,  // category key currently expanded for rename/recolor in the rail, or null
   editingCategoryDraftColor: null, // color picked so far in that panel, before Save
+  editingShelfItemKey: null, // ingredient-name key currently expanded for rename in the shelf manager, or null
 };
 
 // Reserved rail key for the pinned "★ Favorites" entry — distinct from any
@@ -372,6 +373,10 @@ async function deleteCocktailRemote(id) {
 }
 async function upsertShelfRemote(key, isStocked) {
   const { error } = await supabaseClient.from('shelf').upsert({ key, is_stocked: isStocked });
+  if (error) throw error;
+}
+async function deleteShelfRowRemote(key) {
+  const { error } = await supabaseClient.from('shelf').delete().eq('key', key);
   if (error) throw error;
 }
 async function upsertCategoryColorRemote(key, color) {
@@ -526,6 +531,21 @@ function collectShelfIngredients() {
   return list;
 }
 
+// Every distinct ingredient name in use anywhere (base or not, plus
+// alternatives) — feeds the autocomplete on the recipe form's ingredient
+// name fields, same pattern as collectCategories() feeds the category one.
+function collectIngredientNames() {
+  const seen = new Set();
+  for (const c of state.cocktails) {
+    for (const ing of c.ingredients) {
+      for (const name of ingredientNames(ing)) {
+        if (name && name.trim()) seen.add(name.trim());
+      }
+    }
+  }
+  return Array.from(seen).sort((a, b) => a.localeCompare(b));
+}
+
 // Renames a category (every base ingredient tagged with it, on every
 // cocktail) and/or gives it a chosen color. A rename that collides with
 // an existing different category merges into it — confirmed first, since
@@ -591,6 +611,70 @@ async function saveCategoryEdit(oldKey, oldLabel, newLabelRaw, newColor) {
   state.editingCategoryDraftColor = null;
 
   updateCategoryDatalist();
+  updateIngredientDatalist();
+  renderBrowse();
+  renderShelfManager();
+  renderShelf();
+  return true;
+}
+
+// Renames a base ingredient everywhere it appears — as a primary name or
+// as an alternative, on every cocktail — and carries its shelf-stocked
+// state over to the new name. A rename that collides with an existing
+// different ingredient merges the two (confirmed first, since two shelf
+// items become one). Returns false if the user declined that
+// confirmation; throws on a genuine remote failure.
+async function saveShelfItemRename(oldKey, oldName, newNameRaw) {
+  const newName = newNameRaw.trim();
+  const newKey = normalize(newName);
+  const nameChanged = newKey !== oldKey;
+
+  if (nameChanged) {
+    const existing = collectShelfIngredients().flatMap(g => g.items).find(it => it.key === newKey);
+    if (existing) {
+      const ok = confirm(`An ingredient named "${existing.name}" already exists. Merge "${oldName}" into it?`);
+      if (!ok) return false;
+    }
+  }
+
+  const slotMatches = (i) => i.isBase && (normalize(i.name) === oldKey || (i.alternatives || []).some(a => normalize(a.name) === oldKey));
+  const affected = state.cocktails.filter(c => c.ingredients.some(slotMatches));
+
+  if (affected.length > 0) {
+    const updated = affected.map(c => ({
+      ...c,
+      ingredients: c.ingredients.map(i => {
+        if (!slotMatches(i)) return i;
+        const newIng = { ...i };
+        if (normalize(i.name) === oldKey) newIng.name = newName;
+        if (i.alternatives && i.alternatives.length) {
+          newIng.alternatives = i.alternatives.map(a =>
+            normalize(a.name) === oldKey ? { ...a, name: newName } : a
+          );
+        }
+        return newIng;
+      }),
+    }));
+    await upsertCocktailsRemote(updated);
+    const byId = new Map(state.cocktails.map(c => [c.id, c]));
+    for (const c of updated) byId.set(c.id, c);
+    state.cocktails = Array.from(byId.values());
+  }
+
+  if (nameChanged) {
+    const wasStocked = !!state.shelf[oldKey];
+    await upsertShelfRemote(newKey, wasStocked);
+    state.shelf[newKey] = wasStocked;
+    delete state.shelf[oldKey];
+    deleteShelfRowRemote(oldKey).catch(err => console.error('Failed to clean up old shelf row:', err));
+  }
+
+  // Clear before rendering, same reasoning as saveCategoryEdit — the
+  // renders below read this to decide whether to show a normal row or
+  // the edit panel for a given item.
+  state.editingShelfItemKey = null;
+
+  updateIngredientDatalist();
   renderBrowse();
   renderShelfManager();
   renderShelf();
@@ -1132,6 +1216,11 @@ function renderShelfGroup(group) {
   groupEl.appendChild(h4);
 
   for (const item of group.items) {
+    if (state.editingShelfItemKey === item.key) {
+      groupEl.appendChild(renderShelfItemEditPanel(item));
+      continue;
+    }
+
     const row = document.createElement('label');
     row.className = 'shelf-item';
     const isOn = !!state.shelf[item.key];
@@ -1141,7 +1230,7 @@ function renderShelfGroup(group) {
         <span class="track"></span>
         <span class="thumb"></span>
       </span>
-      <span>${item.name}</span>
+      <span class="shelf-item-name">${item.name}</span>
     `;
     row.querySelector('input').addEventListener('change', async (e) => {
       const checked = e.target.checked;
@@ -1159,9 +1248,94 @@ function renderShelfGroup(group) {
         alert("Couldn't save that — check your connection and try again.");
       }
     });
+
+    const pencilBtn = document.createElement('button');
+    pencilBtn.type = 'button';
+    pencilBtn.className = 'edit-pencil-btn';
+    pencilBtn.setAttribute('aria-label', `Rename "${item.name}"`);
+    pencilBtn.title = 'Rename';
+    pencilBtn.innerHTML = '&#9998;';
+    pencilBtn.addEventListener('click', (e) => {
+      // Nested buttons don't forward clicks to the label's checkbox per
+      // spec, but stop it explicitly too — this shouldn't toggle stock.
+      e.preventDefault();
+      e.stopPropagation();
+      state.editingShelfItemKey = item.key;
+      renderShelfManager();
+    });
+    row.appendChild(pencilBtn);
+
     groupEl.appendChild(row);
   }
   return groupEl;
+}
+
+// The rename panel that replaces a shelf item's row in place when its
+// pencil is clicked — same shape as the category rail's edit panel, just
+// a name field (no color, ingredients don't have one) and no category
+// scoping: renaming here affects every cocktail using that name, in
+// whichever category it was tagged.
+function renderShelfItemEditPanel(item) {
+  const panel = document.createElement('div');
+  panel.className = 'category-edit-panel shelf-item-edit-panel';
+
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.className = 'category-edit-name';
+  input.value = item.name;
+  panel.appendChild(input);
+
+  const statusEl = document.createElement('p');
+  statusEl.className = 'category-edit-status';
+  panel.appendChild(statusEl);
+
+  const actions = document.createElement('div');
+  actions.className = 'category-edit-actions';
+
+  const cancelBtn = document.createElement('button');
+  cancelBtn.type = 'button';
+  cancelBtn.textContent = 'Cancel';
+  cancelBtn.addEventListener('click', () => {
+    state.editingShelfItemKey = null;
+    renderShelfManager();
+  });
+  actions.appendChild(cancelBtn);
+
+  const saveBtn = document.createElement('button');
+  saveBtn.type = 'button';
+  saveBtn.className = 'save';
+  saveBtn.textContent = 'Save';
+  saveBtn.addEventListener('click', async () => {
+    const newName = input.value.trim();
+    if (!newName) {
+      statusEl.textContent = "Name can't be empty.";
+      return;
+    }
+    saveBtn.disabled = true;
+    cancelBtn.disabled = true;
+    statusEl.textContent = 'Saving…';
+    try {
+      const saved = await saveShelfItemRename(item.key, item.name, newName);
+      if (!saved) {
+        // Declined a merge confirmation — stay in edit mode, nothing changed.
+        saveBtn.disabled = false;
+        cancelBtn.disabled = false;
+        statusEl.textContent = '';
+        return;
+      }
+      // saveShelfItemRename already clears the editing state and
+      // re-renders on success.
+    } catch (err) {
+      console.error('Failed to rename ingredient:', err);
+      statusEl.textContent = "Couldn't save — check your connection and try again.";
+      saveBtn.disabled = false;
+      cancelBtn.disabled = false;
+    }
+  });
+  actions.appendChild(saveBtn);
+
+  panel.appendChild(actions);
+  return panel;
 }
 
 function renderShelfManager() {
@@ -1365,7 +1539,7 @@ function createAlternativeRow(prefill) {
   const row = document.createElement('div');
   row.className = 'ingredient-alt-row';
   row.innerHTML = `
-    <input type="text" class="ing-alt-name" placeholder="Alternative name (e.g. Vanilla Vodka)" value="${data.name ? data.name.replace(/"/g, '&quot;') : ''}" />
+    <input type="text" class="ing-alt-name" list="ingredient-datalist" placeholder="Alternative name (e.g. Vanilla Vodka)" value="${data.name ? data.name.replace(/"/g, '&quot;') : ''}" />
     <input type="text" class="ing-alt-category" list="category-datalist" placeholder="Category" value="${data.category ? data.category.replace(/"/g, '&quot;') : ''}" />
     <button type="button" class="alt-remove" title="Remove alternative">&times;</button>
   `;
@@ -1382,7 +1556,7 @@ function createIngredientRow(prefill) {
       <span class="drag-handle" title="Drag to reorder" aria-hidden="true">&#x283F;</span>
       <input type="number" class="ing-amount" step="0.125" min="0" placeholder="2" value="${data.amount !== '' && data.amount !== undefined ? data.amount : ''}" required />
       <select class="ing-unit">${unitOptionsHtml(data.unit || 'oz')}</select>
-      <input type="text" class="ing-name" placeholder="Ingredient name" value="${data.name ? data.name.replace(/"/g, '&quot;') : ''}" required />
+      <input type="text" class="ing-name" list="ingredient-datalist" placeholder="Ingredient name" value="${data.name ? data.name.replace(/"/g, '&quot;') : ''}" required />
       <button type="button" class="row-remove" title="Remove ingredient">&times;</button>
     </div>
     <div class="ingredient-row-extra">
@@ -1477,6 +1651,11 @@ function updateCategoryDatalist() {
   datalist.innerHTML = collectCategories().map(c => `<option value="${c.label.replace(/"/g, '&quot;')}"></option>`).join('');
 }
 
+function updateIngredientDatalist() {
+  const datalist = document.getElementById('ingredient-datalist');
+  datalist.innerHTML = collectIngredientNames().map(n => `<option value="${n.replace(/"/g, '&quot;')}"></option>`).join('');
+}
+
 function setFormMode(mode, cocktail) {
   const heading = document.getElementById('add-form-heading');
   const submitBtn = document.getElementById('form-submit-btn');
@@ -1560,6 +1739,7 @@ async function deleteCocktail(id) {
   state.cocktails = state.cocktails.filter(c => c.id !== id);
   if (state.editingId === id) cancelEdit();
   updateCategoryDatalist();
+  updateIngredientDatalist();
   renderBrowse();
   renderShelfManager();
   renderShelf();
@@ -1669,6 +1849,7 @@ function wireAddForm() {
     }
 
     updateCategoryDatalist();
+    updateIngredientDatalist();
     renderBrowse();
     renderShelfManager();
     renderShelf();
@@ -1772,6 +1953,7 @@ function wireExportImport() {
       }
 
       updateCategoryDatalist();
+      updateIngredientDatalist();
       renderBrowse();
       renderShelfManager();
       renderShelf();
@@ -1799,6 +1981,7 @@ async function init() {
   resetGlassField();
   await loadState();
   updateCategoryDatalist();
+  updateIngredientDatalist();
   renderBrowse();
   renderShelfManager();
   renderShelf();
