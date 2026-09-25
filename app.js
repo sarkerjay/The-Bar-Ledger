@@ -1389,10 +1389,10 @@ function renderShelfManager() {
   // "Liqueur" today but won't always be) is pinned to the rightmost of
   // up to 3 equal-width columns. Everything else stays in its normal
   // alphabetical order (collectShelfIngredients already sorts it) and is
-  // greedily balanced across the remaining columns — each category, in
-  // alphabetical order, dropped into whichever column currently has the
-  // fewest items — so no column ends up dramatically taller than the
-  // rest, and a column's own categories still read alphabetically.
+  // sliced into consecutive chunks, one per remaining column — column 1
+  // gets the alphabetically-first run, column 2 the next, and so on —
+  // sized so the chunks are as close to even (by item count) as
+  // possible without breaking up that alphabetical run.
   let featuredIdx = 0;
   for (let i = 1; i < groups.length; i++) {
     if (groups[i].items.length > groups[featuredIdx].items.length) featuredIdx = i;
@@ -1417,13 +1417,23 @@ function renderShelfManager() {
 
   const mainColumnCount = columnCount - 1;
   const mainColumns = Array.from({ length: mainColumnCount }, () => ({ itemCount: 0, groups: [] }));
+  let remainingItems = rest.reduce((sum, g) => sum + g.items.length, 0);
+  let remainingColumns = mainColumnCount;
+  let colIdx = 0;
   for (const group of rest) {
-    let shortest = mainColumns[0];
-    for (const col of mainColumns) {
-      if (col.itemCount < shortest.itemCount) shortest = col;
+    const current = mainColumns[colIdx];
+    const target = remainingItems / remainingColumns;
+    // Move on to the next column once this one already has something in
+    // it and adding this category would overshoot the even split more
+    // than starting the next column with it would undershoot.
+    if (colIdx < mainColumnCount - 1 && current.itemCount > 0 &&
+        (current.itemCount + group.items.length - target) > (target - current.itemCount)) {
+      remainingItems -= current.itemCount;
+      remainingColumns--;
+      colIdx++;
     }
-    shortest.groups.push(group);
-    shortest.itemCount += group.items.length;
+    mainColumns[colIdx].groups.push(group);
+    mainColumns[colIdx].itemCount += group.items.length;
   }
 
   for (const col of mainColumns) {
