@@ -721,43 +721,28 @@ body.modal-open { overflow: hidden; }
   letter-spacing: 0.02em;
 }
 
+/* Up to 4 equal-width columns (--shelf-column-count, set in
+   renderShelfManager) sharing the full row width, so column width scales
+   with the viewport instead of being fixed. The category with the most
+   items is always rendered last (see renderShelfManager) so it lands in
+   the rightmost column; the rest are pre-balanced by item count into
+   whichever columns remain, each as its own .shelf-column. Because
+   columns share the actual row width instead of a fixed pixel size,
+   names only wrap when a column is genuinely too narrow for them,
+   rather than always truncating or always wrapping. */
 .shelf-groups {
   margin-top: 14px;
-  display: flex;
-  align-items: flex-start;
+  display: grid;
+  grid-template-columns: repeat(var(--shelf-column-count, 1), 1fr);
+  align-items: start;
   gap: 18px;
 }
 
-/* Every category except the longest one (see .shelf-groups-featured) —
-   a multi-column flow instead of a grid, so short categories pack
-   tightly one after another instead of every category in a "row"
-   getting stretched to match the tallest. flex:1 used to make this
-   region fill all remaining width before the pinned featured lane,
-   which stretched a handful of one-item categories across several wide,
-   sparse columns with a big gap before that lane — flex:0 1 auto lets
-   it size to however many 190px columns its content actually needs, so
-   it packs tightly against the featured lane instead. Column count
-   still adapts to available width on narrow viewports; break-inside:avoid
-   on .shelf-group keeps one category from being split across two columns. */
-.shelf-groups-main {
-  flex: 0 1 auto;
+.shelf-column {
   min-width: 0;
-  columns: 190px;
-  column-gap: 18px;
-}
-
-/* Whichever category currently has the most items (computed in
-   renderShelfManager, not hardcoded — it's "Liqueur" today but won't
-   always be) gets its own fixed-width lane as a plain vertical list,
-   so it stays fully visible instead of being squeezed into a column
-   with the rest. */
-.shelf-groups-featured {
-  flex: 0 0 200px;
-  width: 200px;
 }
 
 .shelf-group {
-  break-inside: avoid;
   margin-bottom: 18px;
 }
 
@@ -1104,11 +1089,9 @@ body.modal-open { overflow: hidden; }
      the screen, which is what was actually forcing horizontal overflow. */
   .view.is-active { flex-direction: column; align-items: stretch; }
 
-  /* Not enough width for the featured category's own 200px lane beside
-     the multi-column area — stack it below the rest instead, as a
-     normal full-width list. */
-  .shelf-groups { flex-direction: column; }
-  .shelf-groups-featured { width: 100%; flex-basis: auto; }
+  /* Not enough width for multiple columns — stack every category as a
+     single full-width list instead. */
+  .shelf-groups { grid-template-columns: 1fr; }
 
   .category-rail {
     width: 100%;

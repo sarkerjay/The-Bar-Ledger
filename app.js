@@ -1369,12 +1369,12 @@ function renderShelfManager() {
     return;
   }
 
-  // CSS Grid stretches every category in a row to match the tallest one's
-  // height, which looks broken once one category (whichever has the most
-  // items — not hardcoded, since that'll likely change as the collection
-  // grows) is much longer than the rest. So that one gets its own
-  // fixed-width lane as a plain vertical list, and everything else flows
-  // through a multi-column region beside it instead.
+  // Whichever category has the most items (not hardcoded — it's
+  // "Liqueur" today but won't always be) is pinned to the rightmost of
+  // up to 4 equal-width columns; everything else is greedily balanced
+  // across the remaining columns (largest-first, always into whichever
+  // column currently has the fewest items) so no column ends up
+  // dramatically taller than the rest.
   let featuredIdx = 0;
   for (let i = 1; i < groups.length; i++) {
     if (groups[i].items.length > groups[featuredIdx].items.length) featuredIdx = i;
@@ -1382,15 +1382,30 @@ function renderShelfManager() {
   const featured = groups[featuredIdx];
   const rest = groups.filter((_, i) => i !== featuredIdx);
 
-  if (rest.length > 0) {
-    const mainCol = document.createElement('div');
-    mainCol.className = 'shelf-groups-main';
-    for (const group of rest) mainCol.appendChild(renderShelfGroup(group));
-    container.appendChild(mainCol);
+  const columnCount = Math.min(4, groups.length);
+  const mainColumnCount = columnCount - 1;
+  const mainColumns = Array.from({ length: mainColumnCount }, () => ({ itemCount: 0, groups: [] }));
+  const sortedRest = [...rest].sort((a, b) => b.items.length - a.items.length);
+  for (const group of sortedRest) {
+    let shortest = mainColumns[0];
+    for (const col of mainColumns) {
+      if (col.itemCount < shortest.itemCount) shortest = col;
+    }
+    shortest.groups.push(group);
+    shortest.itemCount += group.items.length;
+  }
+
+  container.style.setProperty('--shelf-column-count', columnCount);
+
+  for (const col of mainColumns) {
+    const colEl = document.createElement('div');
+    colEl.className = 'shelf-column';
+    for (const group of col.groups) colEl.appendChild(renderShelfGroup(group));
+    container.appendChild(colEl);
   }
 
   const featuredCol = document.createElement('div');
-  featuredCol.className = 'shelf-groups-featured';
+  featuredCol.className = 'shelf-column';
   featuredCol.appendChild(renderShelfGroup(featured));
   container.appendChild(featuredCol);
 }
