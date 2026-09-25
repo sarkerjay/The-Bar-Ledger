@@ -453,6 +453,20 @@ function cocktailMatchesCategory(cocktail, activeKey) {
   );
 }
 
+// Category keys with no currently-makeable cocktail — used to declutter
+// the shelf view's rail (a "Rum" tab is noise while nothing rum-based is
+// makeable). "Favorites" and "All cocktails" are exempt: they're
+// standing filters, not per-category tabs, so they're never hidden here.
+// The browse rail doesn't call this — every category always shows there.
+function shelfHiddenCategoryKeys() {
+  const makeable = state.cocktails.filter(isMakeable);
+  const hidden = new Set();
+  for (const cat of collectCategories()) {
+    if (!makeable.some(c => cocktailMatchesCategory(c, cat.key))) hidden.add(cat.key);
+  }
+  return hidden;
+}
+
 // Search matches against everything on the recipe: its name, ingredient
 // names (base or not), garnish, and notes — e.g. "campari" surfaces the
 // Negroni, "mint" surfaces the Mojito via its garnish, and a word from a
@@ -785,7 +799,12 @@ function buildIngredientLines(cocktail, unitMode) {
 /* ---------------------------------------------------------
    Rendering: category rails
 --------------------------------------------------------- */
-function renderCategoryRail(containerEl, activeKey, onSelect) {
+// hiddenKeys (optional) lets a caller suppress specific category rows —
+// used by the shelf rail to hide categories with no currently-makeable
+// cocktail, while the browse rail (which passes nothing) always shows
+// every category regardless of how many cocktails currently match it.
+function renderCategoryRail(containerEl, activeKey, onSelect, hiddenKeys) {
+  const hidden = hiddenKeys || new Set();
   containerEl.innerHTML = '';
   const favBtn = document.createElement('button');
   favBtn.className = 'category-btn category-btn-favorites' + (activeKey === FAVORITES_KEY ? ' is-active' : '');
@@ -800,8 +819,10 @@ function renderCategoryRail(containerEl, activeKey, onSelect) {
   containerEl.appendChild(allBtn);
 
   for (const cat of collectCategories()) {
+    if (hidden.has(cat.key) && state.editingCategoryKey !== cat.key) continue;
+
     if (state.editingCategoryKey === cat.key) {
-      containerEl.appendChild(renderCategoryEditPanel(cat, containerEl, activeKey, onSelect));
+      containerEl.appendChild(renderCategoryEditPanel(cat, containerEl, activeKey, onSelect, hidden));
       continue;
     }
 
@@ -825,7 +846,7 @@ function renderCategoryRail(containerEl, activeKey, onSelect) {
       e.stopPropagation();
       state.editingCategoryKey = cat.key;
       state.editingCategoryDraftColor = cat.color;
-      renderCategoryRail(containerEl, activeKey, onSelect);
+      renderCategoryRail(containerEl, activeKey, onSelect, hidden);
     });
     row.appendChild(pencilBtn);
 
@@ -837,7 +858,7 @@ function renderCategoryRail(containerEl, activeKey, onSelect) {
 // its pencil is clicked — a text field pre-filled with the current name,
 // and a fixed 10-swatch palette (no free-form color picker) with the
 // current color ringed.
-function renderCategoryEditPanel(cat, containerEl, activeKey, onSelect) {
+function renderCategoryEditPanel(cat, containerEl, activeKey, onSelect, hiddenKeys) {
   const panel = document.createElement('div');
   panel.className = 'category-edit-panel';
 
@@ -879,7 +900,7 @@ function renderCategoryEditPanel(cat, containerEl, activeKey, onSelect) {
   cancelBtn.addEventListener('click', () => {
     state.editingCategoryKey = null;
     state.editingCategoryDraftColor = null;
-    renderCategoryRail(containerEl, activeKey, onSelect);
+    renderCategoryRail(containerEl, activeKey, onSelect, hiddenKeys);
   });
   actions.appendChild(cancelBtn);
 
@@ -1375,10 +1396,18 @@ function renderShelfManager() {
 }
 
 function renderShelf() {
+  const hiddenCategories = shelfHiddenCategoryKeys();
+  // The active tab just lost its only makeable cocktail (e.g. its last
+  // ingredient got unchecked) and disappeared from the rail — fall back
+  // to "All cocktails" rather than leaving the view stuck on a filter
+  // with no visible way back to it.
+  if (hiddenCategories.has(state.shelfCategory)) {
+    state.shelfCategory = 'all';
+  }
   renderCategoryRail(document.getElementById('shelf-categories'), state.shelfCategory, (key) => {
     state.shelfCategory = key;
     renderShelf();
-  });
+  }, hiddenCategories);
   syncUnitToggle('unit-toggle-shelf');
   syncMadeFilterToggle('made-filter-shelf', state.shelfMadeFilter);
 
