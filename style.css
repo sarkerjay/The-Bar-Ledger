@@ -212,27 +212,6 @@ main { padding: 0; }
   border-bottom: 1px solid var(--ink-line);
 }
 
-/* A real category's row is a div (not a button, since it now holds two
-   separate clickable targets) carrying the same .category-btn look;
-   .category-select-btn is the part that actually selects the category,
-   sized to fill the row minus the pencil. */
-.category-row { gap: 4px; }
-
-.category-row .category-select-btn {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  background: none;
-  border: none;
-  padding: 0;
-  text-align: left;
-  cursor: pointer;
-  color: inherit;
-  font: inherit;
-}
-
 .edit-pencil-btn {
   flex-shrink: 0;
   background: none;
@@ -246,18 +225,17 @@ main { padding: 0; }
   border-radius: var(--radius);
 }
 
-.category-row:hover .edit-pencil-btn,
-.category-row:focus-within .edit-pencil-btn {
-  opacity: 1;
-}
-
 .edit-pencil-btn:hover,
 .edit-pencil-btn:focus-visible {
   color: var(--gold-bright);
   opacity: 1;
 }
 
-/* Rename/recolor panel — replaces a category's row in place. */
+/* Rename/recolor panel — replaces a category's row in place. Used both
+   by the shelf manager's category headings and its ingredient rows (see
+   .shelf-group-heading and .shelf-item below — category editing used to
+   live in the category rail sidebar, moved here to sit next to
+   ingredient renaming). */
 .category-edit-panel {
   background: var(--ink-soft);
   border: 1px solid var(--gold);
@@ -748,13 +726,27 @@ body.modal-open { overflow: hidden; }
   margin-bottom: 18px;
 }
 
-.shelf-group h4 {
-  margin: 0 0 8px;
+.shelf-group-heading {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 8px;
+}
+
+.shelf-group-heading h4 {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
   font-size: 0.76rem;
   letter-spacing: 0.05em;
   text-transform: uppercase;
   color: var(--dot-color, var(--gold));
   font-weight: 700;
+}
+
+.shelf-group-heading:hover .edit-pencil-btn,
+.shelf-group-heading:focus-within .edit-pencil-btn {
+  opacity: 1;
 }
 
 .shelf-item {
@@ -1116,9 +1108,9 @@ body.modal-open { overflow: hidden; }
   /* The pencil's hover reveal doesn't work on touch — just show it. */
   .edit-pencil-btn { opacity: 1; padding: 8px; }
 
-  /* The rail is a horizontally-scrolling strip here, no room for the
-     edit panel to expand in place the way it does in the vertical
-     desktop rail — float it as a fixed bottom sheet instead. */
+  /* The shelf manager's columns are narrow here (or a single column),
+     with limited headroom below the fold — float the edit panel as a
+     fixed bottom sheet instead of expanding in place. */
   .category-edit-panel {
     position: fixed;
     left: 12px;
