@@ -7,7 +7,7 @@ create table if not exists cocktails (
   name text not null,
   glass_type text default '',
   glass_custom text default '',
-  ingredients jsonb not null default '[]',
+  ingredients jsonb not null default '[]', -- each entry: {name, amount, unit, isBase, category, alternatives?: [{name, category}]}
   instructions text default '',
   garnish text default '',
   notes text default '',
