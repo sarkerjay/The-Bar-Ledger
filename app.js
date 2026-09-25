@@ -283,7 +283,7 @@ const state = {
   editingId: null,   // id of the cocktail currently being edited, or null
   editingReturnView: null, // view to return to once editing finishes ('browse'/'shelf')
   categoryColors: {}, // category key -> manually-chosen hex color, from Supabase
-  editingCategoryKey: null,  // category key currently expanded for rename/recolor in the rail, or null
+  editingCategoryKey: null,  // category key currently expanded for rename/recolor in the shelf manager, or null
   editingCategoryDraftColor: null, // color picked so far in that panel, before Save
   editingShelfItemKey: null, // ingredient-name key currently expanded for rename in the shelf manager, or null
 };
@@ -534,7 +534,7 @@ function collectShelfIngredients() {
         const dedupeKey = catKey + '::' + nameKey;
         if (seenNames.has(dedupeKey)) continue;
         seenNames.add(dedupeKey);
-        if (!groups.has(catKey)) groups.set(catKey, { label: catLabel, color: categoryColorFor(catLabel), items: [] });
+        if (!groups.has(catKey)) groups.set(catKey, { key: catKey, label: catLabel, color: categoryColorFor(catLabel), items: [] });
         groups.get(catKey).items.push({ name: v.name.trim(), key: nameKey });
       }
     }
@@ -819,126 +819,15 @@ function renderCategoryRail(containerEl, activeKey, onSelect, hiddenKeys) {
   containerEl.appendChild(allBtn);
 
   for (const cat of collectCategories()) {
-    if (hidden.has(cat.key) && state.editingCategoryKey !== cat.key) continue;
+    if (hidden.has(cat.key)) continue;
 
-    if (state.editingCategoryKey === cat.key) {
-      containerEl.appendChild(renderCategoryEditPanel(cat, containerEl, activeKey, onSelect, hidden));
-      continue;
-    }
-
-    const row = document.createElement('div');
-    row.className = 'category-btn category-row' + (activeKey === cat.key ? ' is-active' : '');
-
-    const selectBtn = document.createElement('button');
-    selectBtn.type = 'button';
-    selectBtn.className = 'category-select-btn';
-    selectBtn.innerHTML = `<span class="dot" style="--dot-color:${cat.color}"></span> ${cat.label}`;
-    selectBtn.addEventListener('click', () => onSelect(cat.key));
-    row.appendChild(selectBtn);
-
-    const pencilBtn = document.createElement('button');
-    pencilBtn.type = 'button';
-    pencilBtn.className = 'edit-pencil-btn';
-    pencilBtn.setAttribute('aria-label', `Rename or recolor "${cat.label}"`);
-    pencilBtn.title = 'Rename or recolor';
-    pencilBtn.innerHTML = '&#9998;';
-    pencilBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      state.editingCategoryKey = cat.key;
-      state.editingCategoryDraftColor = cat.color;
-      renderCategoryRail(containerEl, activeKey, onSelect, hidden);
-    });
-    row.appendChild(pencilBtn);
-
-    containerEl.appendChild(row);
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'category-btn' + (activeKey === cat.key ? ' is-active' : '');
+    btn.innerHTML = `<span class="dot" style="--dot-color:${cat.color}"></span> ${cat.label}`;
+    btn.addEventListener('click', () => onSelect(cat.key));
+    containerEl.appendChild(btn);
   }
-}
-
-// The rename/recolor panel that replaces a category's row in place when
-// its pencil is clicked — a text field pre-filled with the current name,
-// and a fixed 10-swatch palette (no free-form color picker) with the
-// current color ringed.
-function renderCategoryEditPanel(cat, containerEl, activeKey, onSelect, hiddenKeys) {
-  const panel = document.createElement('div');
-  panel.className = 'category-edit-panel';
-
-  const input = document.createElement('input');
-  input.type = 'text';
-  input.className = 'category-edit-name';
-  input.value = cat.label;
-  panel.appendChild(input);
-
-  let selectedColor = state.editingCategoryDraftColor || cat.color;
-  const swatchGrid = document.createElement('div');
-  swatchGrid.className = 'swatch-grid';
-  for (const color of CATEGORY_PALETTE) {
-    const swatch = document.createElement('button');
-    swatch.type = 'button';
-    swatch.className = 'swatch' + (color === selectedColor ? ' is-selected' : '');
-    swatch.style.background = color;
-    swatch.setAttribute('aria-label', `Use ${color} for this category`);
-    swatch.addEventListener('click', () => {
-      selectedColor = color;
-      state.editingCategoryDraftColor = color;
-      swatchGrid.querySelectorAll('.swatch').forEach(s => s.classList.remove('is-selected'));
-      swatch.classList.add('is-selected');
-    });
-    swatchGrid.appendChild(swatch);
-  }
-  panel.appendChild(swatchGrid);
-
-  const statusEl = document.createElement('p');
-  statusEl.className = 'category-edit-status';
-  panel.appendChild(statusEl);
-
-  const actions = document.createElement('div');
-  actions.className = 'category-edit-actions';
-
-  const cancelBtn = document.createElement('button');
-  cancelBtn.type = 'button';
-  cancelBtn.textContent = 'Cancel';
-  cancelBtn.addEventListener('click', () => {
-    state.editingCategoryKey = null;
-    state.editingCategoryDraftColor = null;
-    renderCategoryRail(containerEl, activeKey, onSelect, hiddenKeys);
-  });
-  actions.appendChild(cancelBtn);
-
-  const saveBtn = document.createElement('button');
-  saveBtn.type = 'button';
-  saveBtn.className = 'save';
-  saveBtn.textContent = 'Save';
-  saveBtn.addEventListener('click', async () => {
-    const newLabel = input.value.trim();
-    if (!newLabel) {
-      statusEl.textContent = "Name can't be empty.";
-      return;
-    }
-    saveBtn.disabled = true;
-    cancelBtn.disabled = true;
-    statusEl.textContent = 'Saving…';
-    try {
-      const saved = await saveCategoryEdit(cat.key, cat.label, newLabel, selectedColor);
-      if (!saved) {
-        // Declined a merge confirmation — stay in edit mode, nothing changed.
-        saveBtn.disabled = false;
-        cancelBtn.disabled = false;
-        statusEl.textContent = '';
-        return;
-      }
-      // saveCategoryEdit already clears the editing state and re-renders
-      // the rails/grids on success.
-    } catch (err) {
-      console.error('Failed to save category:', err);
-      statusEl.textContent = "Couldn't save — check your connection and try again.";
-      saveBtn.disabled = false;
-      cancelBtn.disabled = false;
-    }
-  });
-  actions.appendChild(saveBtn);
-
-  panel.appendChild(actions);
-  return panel;
 }
 
 /* ---------------------------------------------------------
@@ -1231,10 +1120,33 @@ function renderBrowse() {
 function renderShelfGroup(group) {
   const groupEl = document.createElement('div');
   groupEl.className = 'shelf-group';
-  const h4 = document.createElement('h4');
-  h4.style.setProperty('--dot-color', group.color);
-  h4.textContent = group.label;
-  groupEl.appendChild(h4);
+
+  if (state.editingCategoryKey === group.key) {
+    groupEl.appendChild(renderShelfCategoryEditPanel(group));
+  } else {
+    const heading = document.createElement('div');
+    heading.className = 'shelf-group-heading';
+
+    const h4 = document.createElement('h4');
+    h4.style.setProperty('--dot-color', group.color);
+    h4.textContent = group.label;
+    heading.appendChild(h4);
+
+    const pencilBtn = document.createElement('button');
+    pencilBtn.type = 'button';
+    pencilBtn.className = 'edit-pencil-btn';
+    pencilBtn.setAttribute('aria-label', `Rename or recolor "${group.label}"`);
+    pencilBtn.title = 'Rename or recolor';
+    pencilBtn.innerHTML = '&#9998;';
+    pencilBtn.addEventListener('click', () => {
+      state.editingCategoryKey = group.key;
+      state.editingCategoryDraftColor = group.color;
+      renderShelfManager();
+    });
+    heading.appendChild(pencilBtn);
+
+    groupEl.appendChild(heading);
+  }
 
   for (const item of group.items) {
     if (state.editingShelfItemKey === item.key) {
@@ -1289,6 +1201,96 @@ function renderShelfGroup(group) {
     groupEl.appendChild(row);
   }
   return groupEl;
+}
+
+// The rename/recolor panel that replaces a category's heading in place
+// when its pencil is clicked — lives here in the shelf manager rather
+// than the category rail sidebar (where it used to be) so it's next to
+// the ingredient renames, which affect the same categories. A text
+// field pre-filled with the current name, and a fixed 10-swatch palette
+// (no free-form color picker) with the current color ringed. The
+// ingredient toggles below stay visible and untouched while editing.
+function renderShelfCategoryEditPanel(group) {
+  const panel = document.createElement('div');
+  panel.className = 'category-edit-panel';
+
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.className = 'category-edit-name';
+  input.value = group.label;
+  panel.appendChild(input);
+
+  let selectedColor = state.editingCategoryDraftColor || group.color;
+  const swatchGrid = document.createElement('div');
+  swatchGrid.className = 'swatch-grid';
+  for (const color of CATEGORY_PALETTE) {
+    const swatch = document.createElement('button');
+    swatch.type = 'button';
+    swatch.className = 'swatch' + (color === selectedColor ? ' is-selected' : '');
+    swatch.style.background = color;
+    swatch.setAttribute('aria-label', `Use ${color} for this category`);
+    swatch.addEventListener('click', () => {
+      selectedColor = color;
+      state.editingCategoryDraftColor = color;
+      swatchGrid.querySelectorAll('.swatch').forEach(s => s.classList.remove('is-selected'));
+      swatch.classList.add('is-selected');
+    });
+    swatchGrid.appendChild(swatch);
+  }
+  panel.appendChild(swatchGrid);
+
+  const statusEl = document.createElement('p');
+  statusEl.className = 'category-edit-status';
+  panel.appendChild(statusEl);
+
+  const actions = document.createElement('div');
+  actions.className = 'category-edit-actions';
+
+  const cancelBtn = document.createElement('button');
+  cancelBtn.type = 'button';
+  cancelBtn.textContent = 'Cancel';
+  cancelBtn.addEventListener('click', () => {
+    state.editingCategoryKey = null;
+    state.editingCategoryDraftColor = null;
+    renderShelfManager();
+  });
+  actions.appendChild(cancelBtn);
+
+  const saveBtn = document.createElement('button');
+  saveBtn.type = 'button';
+  saveBtn.className = 'save';
+  saveBtn.textContent = 'Save';
+  saveBtn.addEventListener('click', async () => {
+    const newLabel = input.value.trim();
+    if (!newLabel) {
+      statusEl.textContent = "Name can't be empty.";
+      return;
+    }
+    saveBtn.disabled = true;
+    cancelBtn.disabled = true;
+    statusEl.textContent = 'Saving…';
+    try {
+      const saved = await saveCategoryEdit(group.key, group.label, newLabel, selectedColor);
+      if (!saved) {
+        // Declined a merge confirmation — stay in edit mode, nothing changed.
+        saveBtn.disabled = false;
+        cancelBtn.disabled = false;
+        statusEl.textContent = '';
+        return;
+      }
+      // saveCategoryEdit already clears the editing state and re-renders
+      // the rails/grids on success.
+    } catch (err) {
+      console.error('Failed to save category:', err);
+      statusEl.textContent = "Couldn't save — check your connection and try again.";
+      saveBtn.disabled = false;
+      cancelBtn.disabled = false;
+    }
+  });
+  actions.appendChild(saveBtn);
+
+  panel.appendChild(actions);
+  return panel;
 }
 
 // The rename panel that replaces a shelf item's row in place when its
@@ -1560,8 +1562,6 @@ function getActiveViewName() {
 
 function switchView(viewName) {
   closeCocktailModal();
-  state.editingCategoryKey = null;
-  state.editingCategoryDraftColor = null;
   document.querySelectorAll('.nav-btn').forEach(b => {
     const active = b.dataset.view === viewName;
     b.classList.toggle('is-active', active);
