@@ -44,6 +44,16 @@ function hashCategoryColor(label) {
   return CATEGORY_PALETTE[hash % CATEGORY_PALETTE.length];
 }
 
+// A category's color: whatever was explicitly chosen for it (persisted in
+// Supabase, see state.categoryColors), falling back to the same computed
+// hash every category started out with. Wherever a category's color is
+// shown, it goes through this — never hashCategoryColor directly — so a
+// manual choice actually sticks.
+function categoryColorFor(label) {
+  const key = categoryKey(label);
+  return (state.categoryColors && state.categoryColors[key]) || hashCategoryColor(label);
+}
+
 /* ---------------------------------------------------------
    Glass types — a fixed set, each with a small line-art icon.
    viewBox is consistent (0 0 24 32) so icons align neatly.
@@ -272,6 +282,9 @@ const state = {
   shelfMadeFilter: 'all',
   editingId: null,   // id of the cocktail currently being edited, or null
   editingReturnView: null, // view to return to once editing finishes ('browse'/'shelf')
+  categoryColors: {}, // category key -> manually-chosen hex color, from Supabase
+  editingCategoryKey: null,  // category key currently expanded for rename/recolor in the rail, or null
+  editingCategoryDraftColor: null, // color picked so far in that panel, before Save
 };
 
 // Reserved rail key for the pinned "★ Favorites" entry — distinct from any
@@ -320,6 +333,18 @@ async function loadState() {
     state.shelf = {};
     (shelfRows || []).forEach(r => { state.shelf[r.key] = r.is_stocked; });
 
+    // Its own try/catch: on a project that hasn't run the migration for
+    // this table yet, custom category colors just aren't available —
+    // that shouldn't take down cocktails/shelf loading too.
+    state.categoryColors = {};
+    try {
+      const { data: colorRows, error: colorError } = await supabaseClient.from('category_colors').select('*');
+      if (colorError) throw colorError;
+      (colorRows || []).forEach(r => { state.categoryColors[r.key] = r.color; });
+    } catch (err) {
+      console.warn('category_colors not available yet (see schema.sql) — categories will use their default colors:', err);
+    }
+
     showBanner(null);
   } catch (err) {
     console.error('Supabase load failed:', err);
@@ -347,6 +372,14 @@ async function deleteCocktailRemote(id) {
 }
 async function upsertShelfRemote(key, isStocked) {
   const { error } = await supabaseClient.from('shelf').upsert({ key, is_stocked: isStocked });
+  if (error) throw error;
+}
+async function upsertCategoryColorRemote(key, color) {
+  const { error } = await supabaseClient.from('category_colors').upsert({ key, color });
+  if (error) throw error;
+}
+async function deleteCategoryColorRemote(key) {
+  const { error } = await supabaseClient.from('category_colors').delete().eq('key', key);
   if (error) throw error;
 }
 async function upsertCocktailsRemote(cocktails) {
@@ -434,7 +467,7 @@ function collectCategories() {
     }
   }
   return Array.from(byKey.entries())
-    .map(([key, label]) => ({ key, label, color: hashCategoryColor(label) }))
+    .map(([key, label]) => ({ key, label, color: categoryColorFor(label) }))
     .sort((a, b) => a.label.localeCompare(b.label));
 }
 
@@ -450,7 +483,7 @@ function collectShelfIngredients() {
       const dedupeKey = catKey + '::' + nameKey;
       if (seenNames.has(dedupeKey)) continue;
       seenNames.add(dedupeKey);
-      if (!groups.has(catKey)) groups.set(catKey, { label: catLabel, color: hashCategoryColor(catLabel), items: [] });
+      if (!groups.has(catKey)) groups.set(catKey, { label: catLabel, color: categoryColorFor(catLabel), items: [] });
       groups.get(catKey).items.push({ name: ing.name.trim(), key: nameKey });
     }
   }
@@ -458,6 +491,64 @@ function collectShelfIngredients() {
   for (const g of list) g.items.sort((a, b) => a.name.localeCompare(b.name));
   list.sort((a, b) => a.label.localeCompare(b.label));
   return list;
+}
+
+// Renames a category (every base ingredient tagged with it, on every
+// cocktail) and/or gives it a chosen color. A rename that collides with
+// an existing different category merges into it — confirmed first, since
+// that folds two categories into one. Returns false if the user declined
+// that confirmation (not an error, just an abort); throws on a genuine
+// remote failure so the caller can show that separately.
+async function saveCategoryEdit(oldKey, oldLabel, newLabelRaw, newColor) {
+  const newLabel = newLabelRaw.trim();
+  const newKey = categoryKey(newLabel);
+  const nameChanged = newKey !== oldKey;
+
+  if (nameChanged) {
+    const existing = collectCategories().find(c => c.key === newKey);
+    if (existing) {
+      const ok = confirm(`A category named "${existing.label}" already exists. Merge "${oldLabel}" into it?`);
+      if (!ok) return false;
+    }
+  }
+
+  const affected = nameChanged
+    ? state.cocktails.filter(c => c.ingredients.some(i => i.isBase && categoryKey(i.category) === oldKey))
+    : [];
+
+  if (affected.length > 0) {
+    const updated = affected.map(c => ({
+      ...c,
+      ingredients: c.ingredients.map(i =>
+        i.isBase && categoryKey(i.category) === oldKey ? { ...i, category: newLabel } : i
+      ),
+    }));
+    await upsertCocktailsRemote(updated);
+    const byId = new Map(state.cocktails.map(c => [c.id, c]));
+    for (const c of updated) byId.set(c.id, c);
+    state.cocktails = Array.from(byId.values());
+  }
+
+  await upsertCategoryColorRemote(newKey, newColor);
+  state.categoryColors[newKey] = newColor;
+  if (nameChanged && oldKey !== newKey) {
+    delete state.categoryColors[oldKey];
+    deleteCategoryColorRemote(oldKey).catch(err => console.error('Failed to clean up old category color:', err));
+  }
+
+  // Clear this before rendering, not after — renderBrowse()/renderShelf()
+  // below read it to decide whether to show a category's normal row or
+  // its edit panel, so clearing it only in the caller (after this
+  // function returns) would make these very renders reopen the panel
+  // for the category that was just saved.
+  state.editingCategoryKey = null;
+  state.editingCategoryDraftColor = null;
+
+  updateCategoryDatalist();
+  renderBrowse();
+  renderShelfManager();
+  renderShelf();
+  return true;
 }
 
 /* ---------------------------------------------------------
@@ -578,12 +669,124 @@ function renderCategoryRail(containerEl, activeKey, onSelect) {
   containerEl.appendChild(allBtn);
 
   for (const cat of collectCategories()) {
-    const btn = document.createElement('button');
-    btn.className = 'category-btn' + (activeKey === cat.key ? ' is-active' : '');
-    btn.innerHTML = `<span class="dot" style="--dot-color:${cat.color}"></span> ${cat.label}`;
-    btn.addEventListener('click', () => onSelect(cat.key));
-    containerEl.appendChild(btn);
+    if (state.editingCategoryKey === cat.key) {
+      containerEl.appendChild(renderCategoryEditPanel(cat, containerEl, activeKey, onSelect));
+      continue;
+    }
+
+    const row = document.createElement('div');
+    row.className = 'category-btn category-row' + (activeKey === cat.key ? ' is-active' : '');
+
+    const selectBtn = document.createElement('button');
+    selectBtn.type = 'button';
+    selectBtn.className = 'category-select-btn';
+    selectBtn.innerHTML = `<span class="dot" style="--dot-color:${cat.color}"></span> ${cat.label}`;
+    selectBtn.addEventListener('click', () => onSelect(cat.key));
+    row.appendChild(selectBtn);
+
+    const pencilBtn = document.createElement('button');
+    pencilBtn.type = 'button';
+    pencilBtn.className = 'edit-pencil-btn';
+    pencilBtn.setAttribute('aria-label', `Rename or recolor "${cat.label}"`);
+    pencilBtn.title = 'Rename or recolor';
+    pencilBtn.innerHTML = '&#9998;';
+    pencilBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      state.editingCategoryKey = cat.key;
+      state.editingCategoryDraftColor = cat.color;
+      renderCategoryRail(containerEl, activeKey, onSelect);
+    });
+    row.appendChild(pencilBtn);
+
+    containerEl.appendChild(row);
   }
+}
+
+// The rename/recolor panel that replaces a category's row in place when
+// its pencil is clicked — a text field pre-filled with the current name,
+// and a fixed 10-swatch palette (no free-form color picker) with the
+// current color ringed.
+function renderCategoryEditPanel(cat, containerEl, activeKey, onSelect) {
+  const panel = document.createElement('div');
+  panel.className = 'category-edit-panel';
+
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.className = 'category-edit-name';
+  input.value = cat.label;
+  panel.appendChild(input);
+
+  let selectedColor = state.editingCategoryDraftColor || cat.color;
+  const swatchGrid = document.createElement('div');
+  swatchGrid.className = 'swatch-grid';
+  for (const color of CATEGORY_PALETTE) {
+    const swatch = document.createElement('button');
+    swatch.type = 'button';
+    swatch.className = 'swatch' + (color === selectedColor ? ' is-selected' : '');
+    swatch.style.background = color;
+    swatch.setAttribute('aria-label', `Use ${color} for this category`);
+    swatch.addEventListener('click', () => {
+      selectedColor = color;
+      state.editingCategoryDraftColor = color;
+      swatchGrid.querySelectorAll('.swatch').forEach(s => s.classList.remove('is-selected'));
+      swatch.classList.add('is-selected');
+    });
+    swatchGrid.appendChild(swatch);
+  }
+  panel.appendChild(swatchGrid);
+
+  const statusEl = document.createElement('p');
+  statusEl.className = 'category-edit-status';
+  panel.appendChild(statusEl);
+
+  const actions = document.createElement('div');
+  actions.className = 'category-edit-actions';
+
+  const cancelBtn = document.createElement('button');
+  cancelBtn.type = 'button';
+  cancelBtn.textContent = 'Cancel';
+  cancelBtn.addEventListener('click', () => {
+    state.editingCategoryKey = null;
+    state.editingCategoryDraftColor = null;
+    renderCategoryRail(containerEl, activeKey, onSelect);
+  });
+  actions.appendChild(cancelBtn);
+
+  const saveBtn = document.createElement('button');
+  saveBtn.type = 'button';
+  saveBtn.className = 'save';
+  saveBtn.textContent = 'Save';
+  saveBtn.addEventListener('click', async () => {
+    const newLabel = input.value.trim();
+    if (!newLabel) {
+      statusEl.textContent = "Name can't be empty.";
+      return;
+    }
+    saveBtn.disabled = true;
+    cancelBtn.disabled = true;
+    statusEl.textContent = 'Saving…';
+    try {
+      const saved = await saveCategoryEdit(cat.key, cat.label, newLabel, selectedColor);
+      if (!saved) {
+        // Declined a merge confirmation — stay in edit mode, nothing changed.
+        saveBtn.disabled = false;
+        cancelBtn.disabled = false;
+        statusEl.textContent = '';
+        return;
+      }
+      // saveCategoryEdit already clears the editing state and re-renders
+      // the rails/grids on success.
+    } catch (err) {
+      console.error('Failed to save category:', err);
+      statusEl.textContent = "Couldn't save — check your connection and try again.";
+      saveBtn.disabled = false;
+      cancelBtn.disabled = false;
+    }
+  });
+  actions.appendChild(saveBtn);
+
+  panel.appendChild(actions);
+  return panel;
 }
 
 /* ---------------------------------------------------------
@@ -594,7 +797,7 @@ function renderCard(cocktail, unitMode, opts) {
   const card = document.createElement('article');
   card.className = 'cocktail-card' + (inModal ? ' cocktail-card-modal' : ' is-clickable');
   const tabLabel = primaryTabLabel(cocktail);
-  card.style.setProperty('--tab-color', hashCategoryColor(tabLabel));
+  card.style.setProperty('--tab-color', categoryColorFor(tabLabel));
 
   const bases = getBaseIngredients(cocktail);
 
@@ -615,7 +818,38 @@ function renderCard(cocktail, unitMode, opts) {
   const name = document.createElement('h3');
   name.className = 'card-name';
   name.textContent = cocktail.name;
-  card.appendChild(name);
+
+  if (inModal) {
+    // The grid already sits under the page's own oz/ml/ratio toolbar, but
+    // the zoom overlay has no such control nearby — without this, units
+    // could only be changed by closing the overlay first. Shares
+    // state.unit with everything else, so this stays in sync with (and
+    // updates) the toolbar toggles too.
+    const nameRow = document.createElement('div');
+    nameRow.className = 'modal-name-row';
+    nameRow.appendChild(name);
+
+    const modalUnitToggle = document.createElement('div');
+    modalUnitToggle.className = 'unit-toggle modal-unit-toggle';
+    modalUnitToggle.setAttribute('role', 'radiogroup');
+    modalUnitToggle.setAttribute('aria-label', 'Measurement units');
+    modalUnitToggle.innerHTML = ['oz', 'ml', 'ratio'].map(u =>
+      `<button data-unit="${u}" class="unit-btn${u === unitMode ? ' is-active' : ''}" type="button">${u}</button>`
+    ).join('');
+    modalUnitToggle.querySelectorAll('.unit-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        state.unit = btn.dataset.unit;
+        saveUnit();
+        renderBrowse();
+        renderShelf();
+        refreshModalIfShowing(cocktail.id);
+      });
+    });
+    nameRow.appendChild(modalUnitToggle);
+    card.appendChild(nameRow);
+  } else {
+    card.appendChild(name);
+  }
 
   const glassLabel = getGlassLabel(cocktail);
   if (glassLabel) {
@@ -709,7 +943,7 @@ function renderCard(cocktail, unitMode, opts) {
   if (!inModal) {
     card.addEventListener('click', (e) => {
       if (e.target.closest('.card-actions') || e.target.closest('.card-favorite-btn') || e.target.closest('.card-made-btn')) return;
-      openCocktailModal(cocktail, unitMode, { showAvailability });
+      openCocktailModal(cocktail, { showAvailability });
     });
   }
 
@@ -764,16 +998,19 @@ async function toggleMade(cocktail) {
    Full-size cocktail view ("zoom") — an overlay showing the same card,
    just bigger and with instructions expanded, not a new route.
 --------------------------------------------------------- */
-let activeModal = null; // { cocktailId, unitMode, opts } while the overlay is open
+let activeModal = null; // { cocktailId, opts } while the overlay is open
 
 function renderModalContent(cocktail) {
   const slot = document.getElementById('modal-card-slot');
   slot.innerHTML = '';
-  slot.appendChild(renderCard(cocktail, activeModal.unitMode, { ...activeModal.opts, expanded: true, inModal: true }));
+  // Always the live state.unit, not whatever was current when the modal
+  // opened — otherwise the in-modal unit toggle couldn't update its own
+  // card (only the toolbar/grid behind it).
+  slot.appendChild(renderCard(cocktail, state.unit, { ...activeModal.opts, expanded: true, inModal: true }));
 }
 
-function openCocktailModal(cocktail, unitMode, opts) {
-  activeModal = { cocktailId: cocktail.id, unitMode, opts };
+function openCocktailModal(cocktail, opts) {
+  activeModal = { cocktailId: cocktail.id, opts };
   renderModalContent(cocktail);
   document.getElementById('cocktail-modal-overlay').hidden = false;
   document.body.classList.add('modal-open');
@@ -1019,6 +1256,8 @@ function getActiveViewName() {
 
 function switchView(viewName) {
   closeCocktailModal();
+  state.editingCategoryKey = null;
+  state.editingCategoryDraftColor = null;
   document.querySelectorAll('.nav-btn').forEach(b => {
     const active = b.dataset.view === viewName;
     b.classList.toggle('is-active', active);

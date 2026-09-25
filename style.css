@@ -212,6 +212,121 @@ main { padding: 0; }
   border-bottom: 1px solid var(--ink-line);
 }
 
+/* A real category's row is a div (not a button, since it now holds two
+   separate clickable targets) carrying the same .category-btn look;
+   .category-select-btn is the part that actually selects the category,
+   sized to fill the row minus the pencil. */
+.category-row { gap: 4px; }
+
+.category-row .category-select-btn {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: none;
+  border: none;
+  padding: 0;
+  text-align: left;
+  cursor: pointer;
+  color: inherit;
+  font: inherit;
+}
+
+.edit-pencil-btn {
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  padding: 4px;
+  margin: -4px -2px;
+  cursor: pointer;
+  color: var(--paper-dim);
+  font-size: 0.72rem;
+  opacity: 0;
+  border-radius: var(--radius);
+}
+
+.category-row:hover .edit-pencil-btn,
+.category-row:focus-within .edit-pencil-btn {
+  opacity: 1;
+}
+
+.edit-pencil-btn:hover,
+.edit-pencil-btn:focus-visible {
+  color: var(--gold-bright);
+  opacity: 1;
+}
+
+/* Rename/recolor panel — replaces a category's row in place. */
+.category-edit-panel {
+  background: var(--ink-soft);
+  border: 1px solid var(--gold);
+  border-radius: var(--radius);
+  padding: 10px;
+  margin: 2px 0;
+}
+
+.category-edit-name {
+  width: 100%;
+  background: var(--paper-dim);
+  color: var(--ink);
+  border: 1px solid var(--paper-line);
+  border-radius: var(--radius);
+  padding: 6px 8px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin-bottom: 10px;
+}
+
+.category-edit-panel .swatch-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.category-edit-panel .swatch {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  cursor: pointer;
+  border: 2px solid transparent;
+  padding: 0;
+}
+
+.category-edit-panel .swatch.is-selected {
+  border-color: var(--gold-bright);
+  box-shadow: 0 0 0 2px var(--ink-soft), 0 0 0 3px var(--gold-bright);
+}
+
+.category-edit-status {
+  min-height: 1.1em;
+  font-size: 0.76rem;
+  color: var(--burgundy);
+  margin: 0 0 6px;
+}
+
+.category-edit-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+}
+
+.category-edit-actions button {
+  background: none;
+  border: none;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  color: var(--paper-dim);
+  padding: 4px 2px;
+}
+
+.category-edit-actions button:hover { color: var(--paper); }
+.category-edit-actions button.save { color: var(--gold); }
+.category-edit-actions button.save:hover { color: var(--gold-bright); }
+.category-edit-actions button:disabled { opacity: 0.5; cursor: default; }
+
 .view-content {
   flex: 1;
   padding: 24px 28px 60px;
@@ -492,6 +607,17 @@ body.modal-open { overflow: hidden; }
   border-top-width: 5px;
 }
 
+.modal-name-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  margin: 10px 0 4px;
+}
+.modal-name-row .card-name { margin: 0; }
+.modal-unit-toggle { flex-shrink: 0; }
+
 .modal-dialog .card-name { font-size: 1.7rem; }
 .modal-dialog .card-ingredients { font-size: 1.02rem; }
 .modal-dialog .card-instructions p { font-size: 1rem; }
@@ -502,6 +628,9 @@ body.modal-open { overflow: hidden; }
   right: 8px;
   width: 34px;
   height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   border-radius: 50%;
   border: 1px solid var(--ink-line);
   background: var(--ink-soft);
@@ -514,9 +643,16 @@ body.modal-open { overflow: hidden; }
 
 /* In the modal, the star shares the same corner as the close button —
    sit it just to the left of the X instead of letting the X's higher
-   z-index bury it. */
+   z-index bury it. Styled to match the close button exactly (same dark
+   fill, not the paper-colored ring it uses on the grid card) so the two
+   read as one matched pair of icon buttons, not two different sizes.
+   The top offset is 5px less than the close button's: this button's
+   positioning context is the card itself, whose gold top border (5px
+   in the modal) sits inside that offset, while the close button's
+   positioning context is the dialog, which has no such border — equal
+   `top` values on both would otherwise land 5px apart. */
 .modal-dialog .card-favorite-btn {
-  top: 8px;
+  top: 3px;
   right: 54px;
   width: 34px;
   height: 34px;
@@ -526,6 +662,7 @@ body.modal-open { overflow: hidden; }
   padding: 0;
   font-size: 1.3rem;
   border: 1px solid var(--ink-line);
+  background: var(--ink-soft);
   z-index: 1;
 }
 
@@ -865,6 +1002,26 @@ body.modal-open { overflow: hidden; }
     padding-bottom: 9px;
     padding-right: 14px;
   }
+
+  /* The pencil's hover reveal doesn't work on touch — just show it. */
+  .edit-pencil-btn { opacity: 1; padding: 8px; }
+
+  /* The rail is a horizontally-scrolling strip here, no room for the
+     edit panel to expand in place the way it does in the vertical
+     desktop rail — float it as a fixed bottom sheet instead. */
+  .category-edit-panel {
+    position: fixed;
+    left: 12px;
+    right: 12px;
+    bottom: 12px;
+    z-index: 60;
+    max-height: 70vh;
+    overflow-y: auto;
+    box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.5);
+  }
+  .category-edit-panel .swatch { width: 26px; height: 26px; }
+  .category-edit-actions button { padding: 8px 6px; }
+
   .view-content { padding: 16px; }
   .add-form { margin: 16px; }
 
@@ -941,7 +1098,7 @@ body.modal-open { overflow: hidden; }
     height: 40px;
   }
   .modal-dialog .card-favorite-btn {
-    top: 12px;
+    top: 7px;
     right: 60px;
     width: 40px;
     height: 40px;
