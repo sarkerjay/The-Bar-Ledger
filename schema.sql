@@ -28,6 +28,18 @@ create table if not exists shelf (
   is_stocked boolean not null default false
 );
 
+-- Manually-chosen colors for categories (renamed/recolored from the
+-- category rail's pencil icon). A category with no row here just keeps
+-- its default computed color. Unlike the columns above, this is a brand
+-- new table, so on an already-live project you don't need a separate
+-- migration statement — running this file again (or just this one
+-- `create table if not exists`) is enough, since the table doesn't exist
+-- there yet either way:
+create table if not exists category_colors (
+  key text primary key,
+  color text not null
+);
+
 -- Note on access: tables created this way are NOT protected by Row Level
 -- Security by default (that's a Postgres/Supabase default, not something
 -- this script is turning off). Combined with the anon key in config.js,
