@@ -731,11 +731,16 @@ body.modal-open { overflow: hidden; }
 /* Every category except the longest one (see .shelf-groups-featured) —
    a multi-column flow instead of a grid, so short categories pack
    tightly one after another instead of every category in a "row"
-   getting stretched to match the tallest. Column count adapts to the
-   available width; break-inside:avoid on .shelf-group keeps one
-   category from being split across two columns. */
+   getting stretched to match the tallest. flex:1 used to make this
+   region fill all remaining width before the pinned featured lane,
+   which stretched a handful of one-item categories across several wide,
+   sparse columns with a big gap before that lane — flex:0 1 auto lets
+   it size to however many 190px columns its content actually needs, so
+   it packs tightly against the featured lane instead. Column count
+   still adapts to available width on narrow viewports; break-inside:avoid
+   on .shelf-group keeps one category from being split across two columns. */
 .shelf-groups-main {
-  flex: 1;
+  flex: 0 1 auto;
   min-width: 0;
   columns: 190px;
   column-gap: 18px;
@@ -773,12 +778,12 @@ body.modal-open { overflow: hidden; }
   font-size: 0.9rem;
 }
 
+/* Long names (e.g. "Violet liqueur (Crème de Violette)") wrap instead of
+   truncating — an ellipsis on a shelf toggle hides which ingredient
+   you're actually switching on/off, which defeats the point of the row. */
 .shelf-item-name {
   flex: 1;
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .shelf-item .edit-pencil-btn {
