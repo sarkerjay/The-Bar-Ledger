@@ -1658,8 +1658,8 @@ function createIngredientRow(prefill) {
     </div>
     <div class="ingredient-row-extra">
       <label><input type="checkbox" class="ing-isbase" ${data.isBase ? 'checked' : ''} /> on my shelf (spirit/liqueur/vermouth/bitters)</label>
-      <label class="ing-optional-label"><input type="checkbox" class="ing-optional" ${data.optional ? 'checked' : ''} /> optional</label>
       <input type="text" class="ing-category" list="category-datalist" placeholder="e.g. Gin" value="${data.category ? data.category.replace(/"/g, '&quot;') : ''}" ${data.isBase ? '' : 'disabled'} />
+      <label class="ing-optional-label"><input type="checkbox" class="ing-optional" ${data.optional ? 'checked' : ''} /> optional</label>
     </div>
     <div class="ingredient-alternatives" ${data.isBase ? '' : 'hidden'}>
       <div class="ingredient-alt-rows"></div>
