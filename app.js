@@ -430,9 +430,11 @@ function ingredientDisplayName(ingredient) {
 }
 
 // A slot counts as stocked if the primary name OR any alternative is on
-// the shelf — you only need one of them.
+// the shelf — you only need one of them. An optional slot never counts as
+// missing at all — it's skipped outright, alternatives included, since
+// skipping it is always an option regardless of what's on the shelf.
 function missingBaseIngredients(cocktail) {
-  return getBaseIngredients(cocktail).filter(i => !ingredientNames(i).some(n => state.shelf[normalize(n)]));
+  return getBaseIngredients(cocktail).filter(i => !i.optional && !ingredientNames(i).some(n => state.shelf[normalize(n)]));
 }
 
 function isMakeable(cocktail) {
@@ -761,23 +763,29 @@ function formatNonVolumeLine(ingredient) {
 function gcd(a, b) { return b ? gcd(b, a % b) : a; }
 function gcdArray(arr) { return arr.reduce((a, b) => gcd(a, b)); }
 
-// Only genuinely measured liquids (oz/ml/cl) participate in the ratio.
-// Dashes, spoons, whole items etc. are listed separately, unchanged.
+// Only genuinely measured, non-optional liquids (oz/ml/cl) participate in
+// the ratio — it's meant to describe the core drink. Dashes, spoons,
+// whole items, and any optional ingredient (volume or not) are listed
+// separately, each in its own native unit (no oz/ml conversion, same as
+// a dash always was).
 function buildRatioLines(cocktail) {
-  const vol = cocktail.ingredients.filter(i => (UNITS[i.unit] || {}).volume);
-  const nonVol = cocktail.ingredients.filter(i => !(UNITS[i.unit] || {}).volume);
-  const extraLines = nonVol.map(formatNonVolumeLine);
+  const core = cocktail.ingredients.filter(i => !i.optional && (UNITS[i.unit] || {}).volume);
+  const extras = cocktail.ingredients.filter(i => i.optional || !(UNITS[i.unit] || {}).volume);
+  const extraLines = extras.map(i => ({
+    text: (UNITS[i.unit] || {}).volume ? formatVolumeLine(i, i.unit) : formatNonVolumeLine(i),
+    isOptional: !!i.optional,
+  }));
 
-  if (vol.length === 0) {
+  if (core.length === 0) {
     return { ratioLine: null, extraLines };
   }
-  const mls = vol.map(i => toMl(i.amount, i.unit));
+  const mls = core.map(i => toMl(i.amount, i.unit));
   // Scale to integers (rounded to 0.01ml) so GCD reduction finds the true
   // simplest ratio, e.g. 60ml:22.5ml:22.5ml -> 8:3:3.
   const scaled = mls.map(v => Math.round(v * 100));
   const g = gcdArray(scaled) || 1;
   const ints = scaled.map(v => Math.round(v / g));
-  const ratioLine = vol.map((ing, idx) => `${ints[idx]} ${ing.name}`).join(' : ');
+  const ratioLine = core.map((ing, idx) => `${ints[idx]} ${ing.name}`).join(' : ');
   return { ratioLine, extraLines };
 }
 
@@ -785,14 +793,14 @@ function buildIngredientLines(cocktail, unitMode) {
   if (unitMode === 'ratio') {
     const { ratioLine, extraLines } = buildRatioLines(cocktail);
     const lines = [];
-    if (ratioLine) lines.push({ text: ratioLine, isRatio: true });
-    for (const l of extraLines) lines.push({ text: l, isRatio: false });
+    if (ratioLine) lines.push({ text: ratioLine, isRatio: true, isOptional: false });
+    for (const l of extraLines) lines.push({ text: l.text, isRatio: false, isOptional: l.isOptional });
     return lines;
   }
   return cocktail.ingredients.map(ing => {
     const isVol = (UNITS[ing.unit] || {}).volume;
     const text = isVol ? formatVolumeLine(ing, unitMode) : formatNonVolumeLine(ing);
-    return { text, isRatio: false };
+    return { text, isRatio: false, isOptional: !!ing.optional };
   });
 }
 
@@ -905,7 +913,13 @@ function renderCard(cocktail, unitMode, opts) {
   for (const line of buildIngredientLines(cocktail, unitMode)) {
     const li = document.createElement('li');
     if (line.isRatio) li.className = 'ratio-line';
-    li.textContent = line.text;
+    li.appendChild(document.createTextNode(line.text));
+    if (line.isOptional) {
+      const tag = document.createElement('span');
+      tag.className = 'ingredient-optional-tag';
+      tag.textContent = 'optional';
+      li.appendChild(tag);
+    }
     list.appendChild(li);
   }
   card.appendChild(list);
@@ -1631,7 +1645,7 @@ function createAlternativeRow(prefill) {
 }
 
 function createIngredientRow(prefill) {
-  const data = prefill || { amount: '', unit: 'oz', name: '', isBase: false, category: '', alternatives: [] };
+  const data = prefill || { amount: '', unit: 'oz', name: '', isBase: false, category: '', alternatives: [], optional: false };
   const wrapper = document.createElement('div');
   wrapper.className = 'ingredient-row-wrapper';
   wrapper.innerHTML = `
@@ -1644,6 +1658,7 @@ function createIngredientRow(prefill) {
     </div>
     <div class="ingredient-row-extra">
       <label><input type="checkbox" class="ing-isbase" ${data.isBase ? 'checked' : ''} /> on my shelf (spirit/liqueur/vermouth/bitters)</label>
+      <label class="ing-optional-label"><input type="checkbox" class="ing-optional" ${data.optional ? 'checked' : ''} /> optional</label>
       <input type="text" class="ing-category" list="category-datalist" placeholder="e.g. Gin" value="${data.category ? data.category.replace(/"/g, '&quot;') : ''}" ${data.isBase ? '' : 'disabled'} />
     </div>
     <div class="ingredient-alternatives" ${data.isBase ? '' : 'hidden'}>
@@ -1780,7 +1795,7 @@ function startEdit(cocktail) {
   for (const ing of ingredients) {
     rowsContainer.appendChild(createIngredientRow({
       amount: ing.amount, unit: ing.unit, name: ing.name, isBase: ing.isBase, category: ing.category,
-      alternatives: ing.alternatives || [],
+      alternatives: ing.alternatives || [], optional: !!ing.optional,
     }));
   }
 
@@ -1853,10 +1868,12 @@ function wireAddForm() {
       const unit = row.querySelector('.ing-unit').value;
       const ingName = row.querySelector('.ing-name').value.trim();
       const isBase = row.querySelector('.ing-isbase').checked;
+      const isOptional = row.querySelector('.ing-optional').checked;
       const category = row.querySelector('.ing-category').value.trim();
       if (!ingName || amountRaw === '') return;
       if (isBase && !category) missingCategory = true;
       const ingredient = { name: ingName, amount: parseFloat(amountRaw), unit, isBase };
+      if (isOptional) ingredient.optional = true;
       if (isBase) {
         ingredient.category = category;
         const alternatives = [];
